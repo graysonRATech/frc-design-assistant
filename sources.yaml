@@ -1,0 +1,30 @@
+# Knowledge-base sources. To add one, append an entry and open a pull request.
+#
+# Common fields (every source):
+#   id              unique slug (lowercase letters, digits, dashes); used in S3 prefixes and citations
+#   type            github_repo | sitemap
+#   name            human-readable name shown in citations
+#   attribution     credit line shown to students alongside answers
+#   license_status  attributed | permitted | link-only
+#   refresh         daily | weekly | monthly | manual
+#
+# github_repo options: repo (owner/name), ref (branch/tag, default main), path (docs folder in repo),
+#                      base_url (site URL that path maps to), include/exclude (globs; * crosses folders)
+# sitemap options:     url (sitemap.xml or sitemap index), include/exclude (globs on URL path),
+#                      delay_seconds (politeness delay, default 1.0), max_pages (default 500)
+
+sources:
+  - id: frcdesign
+    type: github_repo
+    name: FRCDesign.org
+    attribution: "FRCDesign.org contributors (https://www.frcdesign.org/)"
+    license_status: attributed
+    refresh: weekly
+    repo: frcdesign/FRCDesign.org
+    ref: main
+    path: src/content/docs
+    base_url: https://www.frcdesign.org/
+    exclude:
+      - "test-content-figure/*"  # component test fixtures, not content
+      - "contribution/*"         # how to contribute to the website itself
+      - "feature-guide/*"        # how to use the website's UI

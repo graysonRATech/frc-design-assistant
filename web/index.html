@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FRC Design Assistant</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="markdown.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <h1>FRC Design Assistant</h1>
+    <div id="account" hidden>
+      <span id="user-email"></span>
+      <button id="sign-out" class="link">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="signed-out" class="panel" hidden>
+      <h2>Ask about mechanism design, Onshape CAD and fabrication</h2>
+      <p>Answers come from team-approved references and link back to the source pages.</p>
+      <button id="sign-in" class="primary">Sign in with Google</button>
+      <p id="auth-error" class="error" role="alert" hidden></p>
+    </section>
+
+    <section id="chat" hidden>
+      <ol id="messages" aria-live="polite"></ol>
+      <div id="examples" class="examples">
+        <p>Try asking:</p>
+        <button class="example">How do I calculate the center distance for two gears?</button>
+        <button class="example">What bolts should we use for most of the robot?</button>
+        <button class="example">How should I set up a master sketch in Onshape?</button>
+        <button class="example">How much compression should a shooter have?</button>
+      </div>
+      <form id="composer">
+        <label for="question" class="visually-hidden">Your question</label>
+        <textarea id="question" rows="2" maxlength="2000" placeholder="Ask a design, CAD or fabrication question" required></textarea>
+        <button type="submit" class="primary" id="send">Ask</button>
+      </form>
+      <p class="hint">Answers can be wrong. Check the linked sources, and ask a mentor before you cut metal.</p>
+    </section>
+  </main>
+
+  <footer>
+    References: <a href="https://www.frcdesign.org/" target="_blank" rel="noopener">FRCDesign.org</a>, with thanks to its contributors.
+  </footer>
+</body>
+</html>

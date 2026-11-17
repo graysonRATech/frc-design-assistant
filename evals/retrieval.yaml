@@ -1,0 +1,50 @@
+# Retrieval eval: does the Knowledge Base return the right page for a student question?
+# `kb eval` embeds each question (fractions of a cent in total; no Claude calls) and checks
+# whether any `expect` URL fragment appears in the top-k results. Add a case whenever students
+# ask something the assistant gets wrong.
+
+cases:
+  - question: What size bolts should I use on most of the robot?
+    expect: [design-handbook/structure/fasteners/]
+  - question: How do I calculate the center-to-center distance between two gears?
+    expect: [learning-course/stage1/1b/gears/]
+  - question: How do I figure out the right center distance for a belt?
+    expect: [learning-course/stage1/1b/belts/]
+  - question: What chain size do FRC teams use, and how do you tension it?
+    expect: [learning-course/stage1/1b/chain/, learning-course/stage2/2b/tensioning/]
+  - question: How do I choose a gear ratio from motor free speed and the torque I need?
+    expect: [learning-course/stage1/1b/torque-speed/, learning-course/stage1/1b/motors/]
+  - question: Should I use hex shafts or round shafts, and what bearings go with them?
+    expect: [learning-course/stage1/1b/shafts-bearings/, design-handbook/power-transmission/motion-components/]
+  - question: How much compression should a shooter flywheel have on the game piece?
+    expect: [learning-course/stage2/2a/compression-wrap/, mechanism-examples/shooter/]
+  - question: How do I control backspin on a shot?
+    expect: [learning-course/stage2/2a/spin-control/]
+  - question: What is the difference between a cascade and a continuous elevator?
+    expect: [mechanism-examples/elevator/, learning-course/stage2/2d/rigging/]
+  - question: How do I attach the cable to an elevator stage?
+    expect: [learning-course/stage2/2d/cable-ends/, learning-course/stage2/2d/cable-clamp/]
+  - question: What are the golden rules for designing an intake?
+    expect: [learning-course/stage2/2c/intake-golden-rules/]
+  - question: What is a zombie axle?
+    expect: [learning-course/stage2/2c/zombie-axles/]
+  - question: How should I set up a master sketch in Onshape?
+    expect: [best-practices/master-sketch-setup/, learning-course/stage1/1d/layout-sketch/]
+  - question: How should I organize the feature tree in a part studio?
+    expect: [best-practices/feature-tree-setup/]
+  - question: What is top-down design and why use it for a robot?
+    expect: [learning-course/stage1/1d/top-down-design/]
+  - question: Which FeatureScripts do I need to install for the course?
+    expect: [learning-course/course-setup/required-course-tools/featurescripts/, resources/featurescripts/]
+  - question: What infill and wall settings should I use for 3D printed robot parts?
+    expect: [design-handbook/structure/design-for-3d-printing/, design-handbook/structure/intro-to-3d-printing/]
+  - question: Which aluminum tube sizes and wall thicknesses are common for FRC frames?
+    expect: [design-handbook/structure/materials/, design-handbook/structure/structure/]
+  - question: How should the battery be mounted?
+    expect: [learning-course/stage1/1e/battery-mounting/]
+  - question: How do I reduce backlash in an arm gearbox?
+    expect: [learning-course/stage2/2b/backlash/]
+  - question: Show me an example swerve drivebase CAD.
+    expect: [mechanism-examples/drivebase/swerve/]
+  - question: Onshape is laggy on my laptop. How can I speed it up?
+    expect: [learning-course/course-setup/new-to-onshape/performance-tuning/]

@@ -1,0 +1,1 @@
+"""Cognito allowlist triggers."""

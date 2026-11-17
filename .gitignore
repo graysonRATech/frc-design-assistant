@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Ingestion outputs and downloaded sources
+.cache/
+build/
+cdk.out/
+
+# Team-specific deployment settings (student emails, account IDs) never go in git
+config.local.yaml

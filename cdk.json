@@ -1,0 +1,8 @@
+{
+  "app": "uv run --group infra python infra/app.py",
+  "watch": { "include": ["infra/**", "backend/**"] },
+  "context": {
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:checkSecretUsage": true
+  }
+}

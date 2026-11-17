@@ -1,0 +1,51 @@
+# Copy to config.local.yaml (gitignored) and fill in. Deploy settings for the AWS stack.
+
+account: "123456789012"        # AWS account ID to deploy into
+region: us-east-1
+stack_name: FrcRag
+
+# AWS Budgets backstop (account-wide). Alerts at 50/80/100% of this amount go to alert_email;
+# at 120% Budgets attaches an IAM deny policy that stops all Bedrock calls from this stack.
+monthly_budget_usd: 25
+alert_email: mentor@example.org
+
+# App-level caps, enforced by the chat Lambda before every model call. Keep monthly_usd below
+# monthly_budget_usd so the app stops itself before the Budgets action has to.
+limits:
+  user_daily_usd: 0.50          # ~40 questions per student per day at ~$0.01-0.015 each
+  monthly_usd: 20
+
+model:
+  # endpoint "mantle" = Claude in Amazon Bedrock (ids like anthropic.claude-sonnet-5-5).
+  # endpoint "runtime" = Bedrock InvokeModel, for models mantle doesn't serve on your account, e.g.
+  #   id: us.anthropic.claude-haiku-4-5-20251001-v1:0, effort: "", prices 1 / 5.
+  id: anthropic.claude-sonnet-5-5
+  endpoint: mantle
+  max_tokens: 1500
+  effort: low                   # "" for models without the effort parameter (Haiku 4.5)
+  top_k: 6
+  price_input_per_mtok: 2       # used for the app-level caps; update if pricing changes
+  price_output_per_mtok: 10
+
+# Caps concurrent chat Lambdas (and so worst-case overshoot). 0 = no reservation; new AWS accounts
+# have a 10-execution concurrency quota and can't reserve any until it's raised.
+lambda_reserved_concurrency: 0
+audit_retention_days: 365
+
+# Student sign-in (Google via Cognito) and the chat page.
+web:
+  # OAuth client from Google Cloud console (Web application). Leave empty until it exists; the
+  # stack then deploys with sign-in disabled. Its client secret goes in Secrets Manager as
+  # {"client_secret": "..."} under google_secret_name; see README "Google sign-in".
+  google_client_id: ""
+  google_secret_name: frcrag/google-oauth
+  auth_domain_prefix: ""        # default: frc-rag-<account id>
+  extra_origins: []             # e.g. [http://localhost:5173] for local development
+  api_rate_per_second: 5        # API Gateway throttle across all users
+  api_burst: 10
+
+# GitHub Actions (see README "Continuous deployment"). Set to the repository that holds this code,
+# e.g. myteam/frc-design-rag, to create OIDC roles that let its workflows deploy and refresh content.
+# Leave empty to skip; nothing in GitHub can reach the account then.
+github:
+  repo: ""

@@ -1,0 +1,31 @@
+# When a pull request adds or changes a source, run the real ingestion so reviewers can see what
+# it produces (document and chunk counts, token sizes) before anything reaches the knowledge base.
+# Fetches public pages only; no AWS access.
+name: Preview sources
+
+on:
+  pull_request:
+    paths:
+      - sources.yaml
+      - src/frcrag/**
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Ingest all sources
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # avoids the shared unauthenticated GitHub API limit
+        run: |
+          set -o pipefail
+          uv run kb ingest | tee ingest.txt
+          { echo '### Ingestion preview'; echo '```'; cat ingest.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

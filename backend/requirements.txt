@@ -1,0 +1,2 @@
+# Bundled into the chat Lambda by scripts/build_lambda.py (boto3 comes from the Lambda runtime).
+anthropic[bedrock]==2.8.0

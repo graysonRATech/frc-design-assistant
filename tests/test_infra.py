@@ -1,0 +1,224 @@
+import json
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("aws_cdk", reason="install with: uv sync --group infra")
+
+from aws_cdk import App, Environment  # noqa: E402
+from aws_cdk.assertions import Match, Template  # noqa: E402
+
+from infra.config import load  # noqa: E402
+from infra.stack import FrcRagStack  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(scope="module")
+def template() -> Template:
+    config = load(ROOT / "config.example.yaml")
+    app = App()
+    stack = FrcRagStack(
+        app,
+        "Test",
+        config=config,
+        chat_code=ROOT / "backend",
+        backend_dir=ROOT / "backend",
+        web_dir=ROOT / "web",
+        env=Environment(account="123456789012", region="us-east-1"),
+    )
+    return Template.from_stack(stack)
+
+
+def test_knowledge_base_uses_s3_vectors_and_unchunked_files(template):
+    template.has_resource_properties(
+        "AWS::Bedrock::KnowledgeBase",
+        {"StorageConfiguration": {"Type": "S3_VECTORS", "S3VectorsConfiguration": Match.any_value()}},
+    )
+    template.has_resource_properties(
+        "AWS::Bedrock::DataSource",
+        {
+            "DataSourceConfiguration": {"S3Configuration": {"InclusionPrefixes": ["kb/"]}},
+            "VectorIngestionConfiguration": {"ChunkingConfiguration": {"ChunkingStrategy": "NONE"}},
+        },
+    )
+    template.has_resource_properties(
+        "AWS::S3Vectors::Index",
+        {
+            "Dimension": 1024,
+            "MetadataConfiguration": {"NonFilterableMetadataKeys": ["AMAZON_BEDROCK_TEXT", "AMAZON_BEDROCK_METADATA"]},
+        },
+    )
+    template.resource_count_is("AWS::OpenSearchServerless::Collection", 0)
+
+
+def test_chat_lambda_is_configured_with_caps(template):
+    template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Handler": "chat_api.handler.lambda_handler",
+            "Architectures": ["arm64"],
+            "Environment": {
+                "Variables": Match.object_like(
+                    {"MODEL_ID": "anthropic.claude-sonnet-5-5", "MONTHLY_LIMIT_USD": "20.0", "USER_DAILY_LIMIT_USD": "0.5"}
+                )
+            },
+        },
+    )
+
+
+def test_budget_alerts_and_bedrock_kill_switch(template):
+    budget = next(iter(template.find_resources("AWS::Budgets::Budget").values()))
+    thresholds = sorted(n["Notification"]["Threshold"] for n in budget["Properties"]["NotificationsWithSubscribers"])
+    assert thresholds == [50, 80, 100, 100]
+    template.has_resource_properties(
+        "AWS::Budgets::BudgetsAction",
+        {"ActionType": "APPLY_IAM_POLICY", "ActionThreshold": {"Type": "PERCENTAGE", "Value": 120}, "ApprovalModel": "AUTOMATIC"},
+    )
+    template.has_resource_properties(
+        "AWS::IAM::ManagedPolicy",
+        {
+            "PolicyDocument": {
+                "Statement": [Match.object_like({"Effect": "Deny", "Action": ["bedrock:*", "bedrock-mantle:*"]})]
+            }
+        },
+    )
+
+
+def test_audit_table_is_retained_with_ttl(template):
+    template.has_resource(
+        "AWS::DynamoDB::GlobalTable",
+        {"DeletionPolicy": "Retain", "Properties": Match.object_like({"TimeToLiveSpecification": {"AttributeName": "expires_at", "Enabled": True}})},
+    )
+
+
+def test_config_rejects_app_cap_above_budget(tmp_path):
+    local = tmp_path / "config.local.yaml"
+    local.write_text("monthly_budget_usd: 10\nlimits:\n  monthly_usd: 15\n")
+    with pytest.raises(ValueError):
+        load(local)
+
+
+def test_api_requires_cognito_jwt_on_every_route(template):
+    routes = template.find_resources("AWS::ApiGatewayV2::Route")
+    assert {r["Properties"]["RouteKey"] for r in routes.values()} == {"POST /chat", "POST /feedback"}
+    assert all(r["Properties"]["AuthorizationType"] == "JWT" for r in routes.values())
+    template.has_resource_properties("AWS::ApiGatewayV2::Authorizer", {"AuthorizerType": "JWT"})
+
+
+def test_user_pool_is_invite_only_with_allowlist_triggers(template):
+    template.has_resource_properties(
+        "AWS::Cognito::UserPool",
+        {
+            "AdminCreateUserConfig": {"AllowAdminCreateUserOnly": True},
+            "LambdaConfig": {"PreSignUp": Match.any_value(), "PreTokenGeneration": Match.any_value()},
+        },
+    )
+    template.has_resource_properties(
+        "AWS::Cognito::UserPoolClient", {"GenerateSecret": False, "IdTokenValidity": 60, "AllowedOAuthFlows": ["code"]}
+    )
+
+
+def test_google_provider_only_when_configured(template, tmp_path):
+    template.resource_count_is("AWS::Cognito::UserPoolIdentityProvider", 0)
+    local = tmp_path / "config.local.yaml"
+    local.write_text("web:\n  google_client_id: abc.apps.googleusercontent.com\n")
+    stack = FrcRagStack(
+        App(),
+        "WithGoogle",
+        config=load(local),
+        chat_code=ROOT / "backend",
+        backend_dir=ROOT / "backend",
+        web_dir=ROOT / "web",
+        env=Environment(account="123456789012", region="us-east-1"),
+    )
+    google = Template.from_stack(stack)
+    google.has_resource_properties("AWS::Cognito::UserPoolIdentityProvider", {"ProviderName": "Google"})
+    google.has_resource_properties("AWS::Cognito::UserPoolClient", {"SupportedIdentityProviders": ["Google"]})
+
+
+def test_site_is_private_behind_cloudfront_with_csp(template):
+    template.has_resource_properties(
+        "AWS::CloudFront::ResponseHeadersPolicy",
+        {"ResponseHeadersPolicyConfig": {"SecurityHeadersConfig": Match.object_like({"ContentSecurityPolicy": Match.any_value()})}},
+    )
+    template.resource_count_is("AWS::CloudFront::OriginAccessControl", 1)
+
+
+def _stack_with_repo(tmp_path, repo: str) -> Template:
+    local = tmp_path / "config.local.yaml"
+    local.write_text(f"github:\n  repo: {repo}\n", encoding="utf-8")
+    app = App()
+    stack = FrcRagStack(
+        app,
+        "Test",
+        config=load(local),
+        chat_code=ROOT / "backend",
+        backend_dir=ROOT / "backend",
+        web_dir=ROOT / "web",
+        env=Environment(account="123456789012", region="us-east-1"),
+    )
+    return Template.from_stack(stack)
+
+
+def test_no_github_access_without_repo(template):
+    template.resource_count_is("AWS::IAM::OIDCProvider", 0)
+    assert not [k for k in template.to_json()["Outputs"] if k.startswith("GitHub")]
+
+
+def test_github_roles_are_scoped_to_repo_and_context(tmp_path):
+    template = _stack_with_repo(tmp_path, "team/frc-rag")
+    template.has_resource_properties(
+        "AWS::IAM::OIDCProvider", {"Url": "https://token.actions.githubusercontent.com", "ClientIdList": ["sts.amazonaws.com"]}
+    )
+
+    def subject(role_name: str) -> str:
+        role = next(
+            r["Properties"] for r in template.find_resources("AWS::IAM::Role").values() if r["Properties"].get("RoleName") == role_name
+        )
+        condition = role["AssumeRolePolicyDocument"]["Statement"][0]["Condition"]["StringEquals"]
+        assert condition["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
+        return condition["token.actions.githubusercontent.com:sub"]
+
+    assert subject("Test-github-deploy") == "repo:team/frc-rag:environment:production"
+    assert subject("Test-github-content") == "repo:team/frc-rag:ref:refs/heads/main"
+
+    # The content role can't touch anything but the bucket, the KB and reading stack outputs.
+    policies = [p["Properties"] for p in template.find_resources("AWS::IAM::Policy").values()]
+    content_policy = next(p for p in policies if "ContentRole" in str(p["Roles"]))
+    actions = {a for s in content_policy["PolicyDocument"]["Statement"] for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])}
+    assert actions == {
+        "cloudformation:DescribeStacks",
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "bedrock:StartIngestionJob",
+        "bedrock:GetIngestionJob",
+        "bedrock:Retrieve",
+    }
+
+
+def test_github_repo_must_be_owner_slash_name(tmp_path):
+    with pytest.raises(ValueError):
+        _stack_with_repo(tmp_path, "'team/frc-rag:*'")
+
+
+def test_runtime_endpoint_grants_invoke_model_on_the_inference_profile(tmp_path):
+    local = tmp_path / "config.local.yaml"
+    local.write_text(
+        "model:\n  id: us.anthropic.claude-haiku-4-5-20251001-v1:0\n  endpoint: runtime\n  effort: ''\n", encoding="utf-8"
+    )
+    stack = FrcRagStack(
+        App(),
+        "Test",
+        config=load(local),
+        chat_code=ROOT / "backend",
+        backend_dir=ROOT / "backend",
+        web_dir=ROOT / "web",
+        env=Environment(account="123456789012", region="us-east-1"),
+    )
+    policies = json.dumps(Template.from_stack(stack).find_resources("AWS::IAM::Policy"))
+    assert "inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0" in policies
+    assert "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0" in policies
+    assert "bedrock-mantle:CreateInference" not in policies
