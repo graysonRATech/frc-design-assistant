@@ -1,4 +1,4 @@
-"""CDK entry point (see cdk.json). Builds the chat Lambda bundles, then synthesizes the stack."""
+"""CDK entry point (see cdk.json). Builds the chat Lambda bundles and the chat page, then synthesizes the stack."""
 
 import sys
 from pathlib import Path
@@ -10,6 +10,7 @@ from aws_cdk import App, Environment, Tags  # noqa: E402
 from infra.config import ROOT, load  # noqa: E402
 from infra.stack import FrcRagStack  # noqa: E402
 from scripts.build_lambda import build, build_stream_zip  # noqa: E402
+from scripts.build_web import build as build_web  # noqa: E402
 
 config = load()
 bundle = build()
@@ -21,7 +22,7 @@ FrcRagStack(
     chat_code=bundle,
     stream_code=build_stream_zip(bundle),
     backend_dir=ROOT / "backend",
-    web_dir=ROOT / "web",
+    web_dir=build_web(),
     env=Environment(account=config.account, region=config.region),
     description="FRC design RAG assistant: knowledge base, chat Lambda, audit log, budget guardrails",
 )

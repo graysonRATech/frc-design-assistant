@@ -209,7 +209,7 @@ class StudentAccess(Construct):
             "Api",
             cors_preflight=apigw.CorsPreflightOptions(
                 allow_origins=[url.rstrip("/") for url in site_urls],
-                allow_methods=[apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.PATCH, apigw.CorsHttpMethod.DELETE],
+                allow_methods=[apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.PUT, apigw.CorsHttpMethod.PATCH, apigw.CorsHttpMethod.DELETE],
                 allow_headers=["authorization", "content-type"],
                 max_age=Duration.days(1),
             ),
@@ -228,6 +228,7 @@ class StudentAccess(Construct):
             "/chats": [apigw.HttpMethod.GET],
             "/chats/{id}": [apigw.HttpMethod.GET, apigw.HttpMethod.PATCH, apigw.HttpMethod.DELETE],
             "/chats/stop": [apigw.HttpMethod.POST],
+            "/settings": [apigw.HttpMethod.GET, apigw.HttpMethod.PUT],
         }
         for path, methods in routes.items():
             api.add_routes(path=path, methods=methods, integration=integration, authorizer=authorizer)

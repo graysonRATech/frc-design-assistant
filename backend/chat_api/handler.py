@@ -104,6 +104,8 @@ def lambda_handler(event, context, deps: Dependencies | None = None):
             return _feedback(deps, user_id, _json_body(event))
         if route in CHAT_ROUTES:
             return _chats(deps, route, user_id, event)
+        if route in SETTINGS_ROUTES:
+            return _settings(deps, route, user_id, event)
         payload = _payload(event)
     except ValueError as error:
         return _response(400, {"error": str(error)})
@@ -135,6 +137,23 @@ def _chats(deps: Dependencies, route: str, user_id: str, event: dict):
         return _response(200, {"ok": True})
     except ChatNotFound:
         return _response(404, {"error": "That chat doesn't exist, or it was deleted."})
+
+
+SETTINGS_ROUTES = ("GET /settings", "PUT /settings")
+THEMES = ("auto", "forge", "collegiate", "blueprint")
+
+
+def _settings(deps: Dependencies, route: str, user_id: str, event: dict):
+    """Per-user preferences (just the theme for now), kept so they follow the student across devices."""
+    key = {"pk": f"SETTINGS#{user_id}", "sk": "profile"}
+    if route == "GET /settings":
+        item = deps.table.get_item(Key=key).get("Item") or {}
+        return _response(200, {"theme": item.get("theme", "auto")})
+    theme = _json_body(event).get("theme")
+    if theme not in THEMES:
+        raise ValueError(f"'theme' must be one of {', '.join(THEMES)}")
+    deps.table.put_item(Item={**key, "theme": theme, "updated_at": datetime.now(UTC).isoformat(timespec="seconds")})
+    return _response(200, {"theme": theme})
 
 
 def limit_message(scope: str) -> str:

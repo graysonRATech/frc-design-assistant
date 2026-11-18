@@ -1,69 +1,14 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FRC Design Assistant</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="markdown.js" defer></script>
-  <script src="app.js" defer></script>
-</head>
-<body>
-  <header class="bar">
-    <button id="menu" class="icon-button" aria-label="Show chats" aria-controls="sidebar" aria-expanded="false" hidden>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-    </button>
-    <h1>FRC Design Assistant</h1>
-    <div id="account" hidden>
-      <span id="user-email"></span>
-      <button id="sign-out" class="link">Sign out</button>
-    </div>
-  </header>
-
-  <div class="layout">
-    <aside id="sidebar" hidden>
-      <button id="new-chat" class="new-chat">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        New chat
-      </button>
-      <nav aria-label="Saved chats">
-        <ol id="chat-list"></ol>
-        <p id="chat-list-empty" class="hint" hidden>Your chats will show up here.</p>
-      </nav>
-      <p id="retention" class="hint"></p>
-    </aside>
-    <div id="scrim" hidden></div>
-
-    <main>
-      <section id="signed-out" class="panel" hidden>
-        <h2>Ask about mechanism design, Onshape CAD and fabrication</h2>
-        <p>Answers come from team-approved references and link back to the source pages.</p>
-        <button id="sign-in" class="primary">Sign in with Google</button>
-        <p id="auth-error" class="error" role="alert" hidden></p>
-      </section>
-
-      <section id="chat" hidden>
-        <ol id="messages" aria-live="polite"></ol>
-        <div id="examples" class="examples">
-          <p>Try asking:</p>
-          <button class="example">How do I calculate the center distance for two gears?</button>
-          <button class="example">What bolts should we use for most of the robot?</button>
-          <button class="example">How should I set up a master sketch in Onshape?</button>
-          <button class="example">How much compression should a shooter have?</button>
-        </div>
-        <form id="composer">
-          <label for="question" class="visually-hidden">Your question</label>
-          <textarea id="question" rows="2" maxlength="2000" placeholder="Ask a design, CAD or fabrication question" required></textarea>
-          <button type="submit" class="primary" id="send">Ask</button>
-          <button type="button" class="secondary" id="stop" hidden>Stop</button>
-        </form>
-        <p class="hint">Answers can be wrong. Check the linked sources, and ask a mentor before you cut metal.</p>
-      </section>
-    </main>
-  </div>
-
-  <footer>
-    References: <a href="https://www.frcdesign.org/" target="_blank" rel="noopener">FRCDesign.org</a>, with thanks to its contributors.
-  </footer>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>TORCH Design Assistant</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

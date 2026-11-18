@@ -283,6 +283,19 @@ def test_stop_route_flags_the_request():
     assert not Conversations(d.table, 90).stop_requested("other@example.org", "req-9")
 
 
+def test_theme_setting_defaults_to_auto_and_is_per_user():
+    d = deps()
+    assert call(d, "GET /settings") == (200, {"theme": "auto"})
+    assert call(d, "PUT /settings", body={"theme": "blueprint"}) == (200, {"theme": "blueprint"})
+    assert call(d, "GET /settings") == (200, {"theme": "blueprint"})
+    assert call(d, "GET /settings", email="other@example.org") == (200, {"theme": "auto"})
+
+
+@pytest.mark.parametrize("body", [{"theme": "neon"}, {"theme": 3}, {}])
+def test_theme_setting_rejects_unknown_themes(body):
+    assert call(deps(), "PUT /settings", body=body)[0] == 400
+
+
 # --- Token checks and the HTTP server
 
 jwt = pytest.importorskip("jwt")

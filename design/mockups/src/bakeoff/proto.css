@@ -1,0 +1,10 @@
+/* Theme touches for the prototype banner (each system supplies the banner itself). */
+.proto { position: relative; }
+.proto-label { font: 700 13px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; margin-right: 8px; }
+.torch-forge .proto, .ax-forge .proto { box-shadow: inset 8px 0 0 0 transparent; }
+.proto.forge::before {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 10px;
+  background: repeating-linear-gradient(135deg, #fecc07 0 6px, #0c1211 6px 12px);
+}
+.proto.blueprint .proto-label { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: #e2700b; }
+.proto.collegiate .proto-label { background: #0d4641; color: #fecc07; padding: 3px 6px; border-radius: 3px; }

@@ -12,6 +12,7 @@ from infra.config import load  # noqa: E402
 from infra.stack import FrcRagStack  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
+WEB_FIXTURE = ROOT / "tests" / "fixtures" / "web"  # stands in for web/dist, which needs an npm build
 
 
 @pytest.fixture(scope="module")
@@ -24,7 +25,7 @@ def template() -> Template:
         config=config,
         chat_code=ROOT / "backend",
         backend_dir=ROOT / "backend",
-        web_dir=ROOT / "web",
+        web_dir=WEB_FIXTURE,
         env=Environment(account="123456789012", region="us-east-1"),
     )
     return Template.from_stack(stack)
@@ -109,6 +110,8 @@ def test_api_requires_cognito_jwt_on_every_route(template):
         "PATCH /chats/{id}",
         "DELETE /chats/{id}",
         "POST /chats/stop",
+        "GET /settings",
+        "PUT /settings",
     }
     assert all(r["Properties"]["AuthorizationType"] == "JWT" for r in routes.values())
     template.has_resource_properties("AWS::ApiGatewayV2::Authorizer", {"AuthorizerType": "JWT"})
@@ -137,7 +140,7 @@ def test_google_provider_only_when_configured(template, tmp_path):
         config=load(local),
         chat_code=ROOT / "backend",
         backend_dir=ROOT / "backend",
-        web_dir=ROOT / "web",
+        web_dir=WEB_FIXTURE,
         env=Environment(account="123456789012", region="us-east-1"),
     )
     google = Template.from_stack(stack)
@@ -163,7 +166,7 @@ def _stack_with_repo(tmp_path, repo: str) -> Template:
         config=load(local),
         chat_code=ROOT / "backend",
         backend_dir=ROOT / "backend",
-        web_dir=ROOT / "web",
+        web_dir=WEB_FIXTURE,
         env=Environment(account="123456789012", region="us-east-1"),
     )
     return Template.from_stack(stack)
@@ -178,7 +181,7 @@ def _stack_from(tmp_path, local_yaml: str) -> Template:
         config=load(local),
         chat_code=ROOT / "backend",
         backend_dir=ROOT / "backend",
-        web_dir=ROOT / "web",
+        web_dir=WEB_FIXTURE,
         env=Environment(account="123456789012", region="us-east-1"),
     )
     return Template.from_stack(stack)
@@ -302,7 +305,7 @@ def test_runtime_endpoint_grants_invoke_model_on_the_inference_profile(tmp_path)
         config=load(local),
         chat_code=ROOT / "backend",
         backend_dir=ROOT / "backend",
-        web_dir=ROOT / "web",
+        web_dir=WEB_FIXTURE,
         env=Environment(account="123456789012", region="us-east-1"),
     )
     policies = json.dumps(Template.from_stack(stack).find_resources("AWS::IAM::Policy"))

@@ -1,0 +1,81 @@
+/* shadcn/ui setup for the bake-off. Tailwind's preflight is left out so it doesn't reset the other
+   systems' stories; a small reset scoped to .shadcn-root stands in for it. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "./";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-user: var(--user);
+  --color-user-foreground: var(--user-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Barlow", system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  .shadcn-root *, .shadcn-root *::before, .shadcn-root *::after { box-sizing: border-box; border: 0 solid var(--border); }
+  .shadcn-root button, .shadcn-root input, .shadcn-root textarea { font: inherit; color: inherit; background: transparent; margin: 0; }
+  .shadcn-root button { cursor: pointer; }
+  .shadcn-root h2, .shadcn-root h3, .shadcn-root p, .shadcn-root ol { margin: 0; }
+  .shadcn-root { font-family: var(--font-sans); background: var(--background); color: var(--foreground); }
+}
+
+.shadcn-root.torch-forge {
+  --background: #0c1211; --foreground: #eef1ec; --card: #131b19; --card-foreground: #eef1ec; --popover: #131b19; --popover-foreground: #eef1ec;
+  --primary: #fecc07; --primary-foreground: #1a1300; --secondary: #1a2422; --secondary-foreground: #eef1ec;
+  --muted: #1a2422; --muted-foreground: #8fa09b; --accent: #1f2b28; --accent-foreground: #fecc07;
+  --destructive: #f2948b; --border: #26332f; --input: #2c3a37; --ring: #fd9727; --radius: 0.75rem;
+  --sidebar: #090e0d; --sidebar-foreground: #eef1ec; --user: #0d4641; --user-foreground: #eef7f3;
+  --flame: linear-gradient(135deg, #fecc07, #fd9727);
+}
+.shadcn-root.torch-collegiate {
+  --background: #f8f7f4; --foreground: #0d4641; --card: #ffffff; --card-foreground: #0d4641; --popover: #ffffff; --popover-foreground: #0d4641;
+  --primary: #00723e; --primary-foreground: #ffffff; --secondary: #fecc07; --secondary-foreground: #0d4641;
+  --muted: #f1efea; --muted-foreground: #5d7773; --accent: #e2f2e7; --accent-foreground: #00723e;
+  --destructive: #b3261e; --border: #e2ded6; --input: #d6d1c7; --ring: #00723e; --radius: 0.5rem;
+  --sidebar: #0d4641; --sidebar-foreground: #ffffff; --user: #0d4641; --user-foreground: #ffffff;
+  --flame: #fecc07;
+}
+.shadcn-root.torch-blueprint {
+  --background: #f2f5f1; --foreground: #0f2e2b; --card: #fbfcfa; --card-foreground: #0f2e2b; --popover: #fbfcfa; --popover-foreground: #0f2e2b;
+  --primary: #0d4641; --primary-foreground: #ffffff; --secondary: #fde8d2; --secondary-foreground: #e2700b;
+  --muted: #e7efea; --muted-foreground: #557571; --accent: #e3ece7; --accent-foreground: #0d4641;
+  --destructive: #b3261e; --border: #0d4641; --input: #0d4641; --ring: #e2700b; --radius: 0.125rem;
+  --sidebar: #fbfcfa; --sidebar-foreground: #0f2e2b; --user: #fbfcfa; --user-foreground: #0f2e2b;
+  --flame: #0d4641;
+  --font-display: "IBM Plex Mono", monospace;
+}
+.shadcn-root.torch-blueprint main {
+  background:
+    linear-gradient(rgb(13 70 65 / 0.07) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgb(13 70 65 / 0.07) 1px, transparent 1px) 0 0 / 24px 24px, #f2f5f1;
+}
+.sc-cursor { display: inline-block; width: 8px; height: 1.05em; margin-left: 3px; vertical-align: -0.15em; background: var(--primary); animation: sc-blink 1s steps(2) infinite; }
+@keyframes sc-blink { 50% { opacity: 0; } }

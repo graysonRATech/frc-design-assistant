@@ -1,0 +1,17 @@
+/* Small TORCH touches on top of the Astryx tokens. */
+.ax-root { height: 100vh; }
+.ax-root h2 { font-family: var(--ax-font-display); text-transform: uppercase; letter-spacing: 0.04em; }
+.ax-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin-top: 12px; }
+.ax-push { flex: 1; }
+.ax-bot { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; }
+
+.ax-forge { --flame: linear-gradient(135deg, #fecc07, #fd9727); }
+.ax-forge::before { content: ""; position: fixed; inset: 0 0 auto; height: 3px; background: var(--flame); z-index: 50; }
+
+.ax-blueprint main {
+  background:
+    linear-gradient(rgb(13 70 65 / 0.07) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgb(13 70 65 / 0.07) 1px, transparent 1px) 0 0 / 24px 24px,
+    #f2f5f1;
+}
+.ax-blueprint h2 { font-family: "IBM Plex Mono", monospace; font-size: 14px; }

@@ -1,0 +1,105 @@
+/* TORCH themes mapped onto Web Awesome tokens, plus the page layout (Web Awesome supplies the
+   controls; the layout is ours). */
+
+.wa-root {
+  --wa-font-family-body: "Barlow", system-ui, sans-serif;
+  --wa-font-family-heading: "Barlow Condensed", "Barlow", sans-serif;
+  --wa-font-family-code: "IBM Plex Mono", ui-monospace, monospace;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  background: var(--wa-color-surface-default);
+  color: var(--wa-color-text-normal);
+  font-family: var(--wa-font-family-body);
+}
+
+.torch-forge {
+  --wa-color-surface-default: #0c1211; --wa-color-surface-raised: #131b19; --wa-color-surface-lowered: #090e0d;
+  --wa-color-surface-border: #26332f; --wa-color-text-normal: #eef1ec; --wa-color-text-quiet: #8fa09b; --wa-color-text-link: #fecc07;
+  --wa-color-brand-fill-loud: #fecc07; --wa-color-brand-on-loud: #1a1300; --wa-color-brand-fill-normal: rgb(254 204 7 / 0.22);
+  --wa-color-brand-on-normal: #fecc07; --wa-color-brand-fill-quiet: rgb(254 204 7 / 0.12); --wa-color-brand-on-quiet: #fdb357;
+  --wa-color-brand-border-loud: #fd9727; --wa-color-brand-border-normal: rgb(253 151 39 / 0.5); --wa-color-brand-border-quiet: rgb(253 151 39 / 0.25);
+  --wa-color-focus: #fd9727; --wa-border-radius-scale: 1.4;
+  --side-bg: #090e0d; --side-ink: #eef1ec; --user-bg: #0d4641; --user-ink: #eef7f3;
+}
+.torch-forge .wa-new::part(base) { background: linear-gradient(135deg, #fecc07, #fd9727); }
+
+.torch-collegiate {
+  --wa-color-surface-default: #f8f7f4; --wa-color-surface-raised: #ffffff; --wa-color-surface-lowered: #f1efea;
+  --wa-color-surface-border: #e2ded6; --wa-color-text-normal: #0d4641; --wa-color-text-quiet: #5d7773; --wa-color-text-link: #00723e;
+  --wa-color-brand-fill-loud: #00723e; --wa-color-brand-on-loud: #ffffff; --wa-color-brand-fill-normal: #cfe9d8;
+  --wa-color-brand-on-normal: #00572f; --wa-color-brand-fill-quiet: #e2f2e7; --wa-color-brand-on-quiet: #00723e;
+  --wa-color-brand-border-loud: #00723e; --wa-color-brand-border-normal: #8cc7a3; --wa-color-brand-border-quiet: #cfe9d8;
+  --wa-color-focus: #00723e; --wa-border-radius-scale: 1;
+  --side-bg: #0d4641; --side-ink: #ffffff; --user-bg: #0d4641; --user-ink: #ffffff;
+}
+.torch-collegiate .wa-new::part(base) { background: #fecc07; color: #0d4641; }
+.torch-collegiate .wa-side { --wa-color-text-quiet: #a9c6c1; --wa-color-surface-border: #1f5a54; }
+
+.torch-blueprint {
+  --wa-font-family-heading: "IBM Plex Mono", monospace;
+  --wa-color-surface-default: #f2f5f1; --wa-color-surface-raised: #fbfcfa; --wa-color-surface-lowered: #e7efea;
+  --wa-color-surface-border: #0d4641; --wa-color-text-normal: #0f2e2b; --wa-color-text-quiet: #557571; --wa-color-text-link: #e2700b;
+  --wa-color-brand-fill-loud: #0d4641; --wa-color-brand-on-loud: #ffffff; --wa-color-brand-fill-normal: #fde8d2;
+  --wa-color-brand-on-normal: #e2700b; --wa-color-brand-fill-quiet: #fde8d2; --wa-color-brand-on-quiet: #e2700b;
+  --wa-color-brand-border-loud: #0d4641; --wa-color-brand-border-normal: #e2700b; --wa-color-brand-border-quiet: #a9c1bb;
+  --wa-color-focus: #e2700b; --wa-border-radius-scale: 0.15; --wa-border-width-scale: 1.5;
+  --side-bg: #fbfcfa; --side-ink: #0f2e2b; --user-bg: #fbfcfa; --user-ink: #0f2e2b;
+}
+.torch-blueprint .wa-main {
+  background:
+    linear-gradient(rgb(13 70 65 / 0.07) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgb(13 70 65 / 0.07) 1px, transparent 1px) 0 0 / 24px 24px, #f2f5f1;
+}
+.torch-blueprint .wa-user > div { border: 1.5px solid #0d4641; }
+.torch-blueprint .wa-top h2 { font-size: 14px; letter-spacing: 0.06em; }
+
+.wa-proto { grid-column: 1 / -1; border-radius: 0; padding-left: 22px; }
+.wa-side { display: flex; flex-direction: column; gap: 12px; padding: 14px 12px; background: var(--side-bg); color: var(--side-ink); border-right: 1px solid var(--wa-color-surface-border); overflow: auto; }
+.wa-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.wa-brand b { display: block; font: 700 19px/1 var(--wa-font-family-heading); letter-spacing: 0.06em; text-transform: uppercase; }
+.wa-brand em { font-style: normal; color: #fecc07; }
+.torch-blueprint .wa-brand em { color: #e2700b; }
+.wa-brand span { font-size: 12px; opacity: 0.75; }
+.wa-new { width: 100%; }
+.wa-chats { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.wa-chats h3 { margin: 0 0 4px 8px; font: 600 11px/1.4 var(--wa-font-family-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--wa-color-text-quiet); }
+.wa-chats a { display: block; padding: 7px 8px; border-radius: var(--wa-border-radius-m); color: inherit; text-decoration: none; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-chats a:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.wa-chats a.current { background: color-mix(in srgb, currentColor 12%, transparent); box-shadow: inset 3px 0 0 var(--wa-color-brand-border-loud); }
+.wa-usage { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--wa-color-text-quiet); }
+.wa-usage > div { display: flex; justify-content: space-between; }
+.wa-usage wa-progress-bar { --track-height: 6px; }
+
+.wa-main { display: flex; flex-direction: column; min-width: 0; }
+.wa-top { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--wa-color-surface-border); background: var(--wa-color-surface-raised); }
+.wa-top h2 { flex: 1; margin: 0; font: 700 18px/1.2 var(--wa-font-family-heading); text-transform: uppercase; letter-spacing: 0.04em; }
+.wa-thread { flex: 1; overflow: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+.wa-thread > * { width: 100%; max-width: 760px; margin: 0 auto; }
+.wa-user { display: flex; justify-content: flex-end; }
+.wa-user > div { max-width: 80%; padding: 12px 16px; border-radius: var(--wa-border-radius-l); background: var(--user-bg); color: var(--user-ink); }
+.wa-bot { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; }
+.wa-bot-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--wa-border-radius-m); background: var(--side-bg); }
+.wa-answer p { margin: 4px 0 12px; line-height: 1.6; }
+.wa-answer wa-badge { vertical-align: 2px; }
+.wa-answer wa-callout { margin-bottom: 14px; }
+.wa-formula-label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.8; }
+.wa-formula { font: 500 18px var(--wa-font-family-code); }
+.wa-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; border: 1px solid var(--wa-color-surface-border); border-radius: var(--wa-border-radius-m); }
+.wa-table th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--wa-color-text-quiet); background: var(--wa-color-surface-lowered); }
+.wa-table th, .wa-table td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--wa-color-surface-border); }
+.wa-table td:last-child, .wa-table th:last-child { text-align: right; font-family: var(--wa-font-family-code); }
+.wa-table tr.total td { font-weight: 700; color: var(--wa-color-brand-on-quiet); }
+.wa-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.wa-source { --spacing: 10px; }
+.wa-source-row { display: flex; align-items: center; gap: 10px; }
+.wa-source-row > div { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.wa-source-row small { color: var(--wa-color-text-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-actions { display: flex; gap: 2px; color: var(--wa-color-text-quiet); }
+.wa-cursor { display: inline-block; width: 8px; height: 1.05em; margin-left: 3px; vertical-align: -0.15em; background: var(--wa-color-brand-fill-loud); animation: wa-blink 1s steps(2) infinite; }
+@keyframes wa-blink { 50% { opacity: 0; } }
+.wa-composer { width: calc(100% - 48px); max-width: 760px; margin: 8px auto 20px; padding: 10px; border: 1px solid var(--wa-color-surface-border); border-radius: var(--wa-border-radius-l); background: var(--wa-color-surface-raised); }
+.wa-composer wa-textarea::part(base) { border: 0; }
+.wa-composer-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.wa-composer-row small { flex: 1; color: var(--wa-color-text-quiet); }

@@ -1,0 +1,9 @@
+/* Layout for the component-kit stories (each system styles the controls themselves). */
+.kit { min-height: 100vh; padding: 28px 32px 48px; display: flex; flex-direction: column; gap: 26px; font-family: "Barlow", system-ui, sans-serif; }
+.kit h3.kit-title { margin: 0; font: 700 28px/1 "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: 0.04em; }
+.kit .kit-sub { margin: 4px 0 0; opacity: 0.7; }
+.kit section { display: flex; flex-direction: column; gap: 10px; }
+.kit h4 { margin: 0; font: 600 12px/1.2 "IBM Plex Mono", monospace; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; }
+.kit .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.kit .col { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; align-items: start; }
+.kit .stack { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }

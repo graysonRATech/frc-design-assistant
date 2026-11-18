@@ -70,7 +70,7 @@ Source: https://www.frcdesign.org/design-handbook/structure/fasteners/#imperial
 | AWS Budgets | Email at 50/80/100% of the monthly budget and on forecast; at 120% an IAM deny on all Bedrock calls |
 | Cognito user pool | Google sign-in only. Allowlist triggers (`backend/auth_triggers`) reject anyone not added with `kb users add`, on sign-up and on every token refresh |
 | HTTP API | `POST /chat`, `POST /feedback` and the saved-chat routes (`/chats`), all behind a Cognito JWT authorizer; throttled to 5 req/s |
-| CloudFront + S3 | The chat page (`web/`, plain HTML/JS, no build step) with a strict Content-Security-Policy: saved chats in a sidebar, streamed answers with Stop, copy, retry and edit-last-question |
+| CloudFront + S3 | The chat page (`web/`: React + [Astryx](https://github.com/meta/astryx), built with Vite) under a strict Content-Security-Policy. Saved chats, streamed answers with Stop, copy, retry and edit, and a per-user theme (Auto, Forge, Collegiate, Blueprint) saved with `GET`/`PUT /settings` |
 
 ### One-time setup
 
@@ -136,6 +136,26 @@ If the Budgets kill switch fires, detach the `BudgetDenyBedrock` policy from the
 ```sh
 uv run --group infra --group aws pytest    # includes CDK template assertions (~20 s)
 ```
+
+### Working on the chat page
+
+`cdk deploy` builds the page (`scripts/build_web.py`: `npm ci`, then `npm run build`), so Node.js 22+ is
+needed for deploys. To work on it locally:
+
+```
+cd web
+npm ci
+curl -s https://frc.ratech.ai/config.json -o public/config.json   # point the page at the deployed API (gitignored)
+npm run dev
+```
+
+Sign-in redirects back to the deployed site, so add `http://localhost:5173` to `web.extra_origins` and
+deploy once before signing in locally. The three TORCH themes live in `web/src/themes/*.mjs` and are
+compiled to static CSS by `npm run themes` (Astryx `theme build`), so no styles are injected at runtime
+and the Content-Security-Policy stays strict. `npm run preview` serves the build with that same policy.
+
+The flame-in-gear mark in `web/src/components/Brand.jsx` and `web/public/favicon.svg` is a placeholder
+until the team's official logo file is added.
 
 ### Custom domain
 

@@ -10,3 +10,7 @@ cdk.out/
 
 # Team-specific deployment settings (student emails, account IDs) never go in git
 config.local.yaml
+
+# Mockup tooling
+node_modules/
+storybook-static/

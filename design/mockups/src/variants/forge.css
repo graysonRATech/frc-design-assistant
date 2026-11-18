@@ -1,0 +1,73 @@
+/* FORGE: dark pit-and-workshop. Near-black greens from the school teal, the flame (gold → orange)
+   reserved for the things that matter: the primary action, citations, the live cursor. */
+
+.v-forge {
+  --bg: #0c1211;
+  --surface: #131b19;
+  --surface-2: #1a2422;
+  --text: #eef1ec;
+  --muted: #8fa09b;
+  --line: #24312e;
+  --accent: #fecc07;
+  --accent-ink: #1a1300;
+  --accent-soft: rgb(254 204 7 / 0.13);
+  --flame: linear-gradient(135deg, #fecc07 0%, #fd9727 100%);
+  --user-bg: #0d4641;
+  --user-ink: #eef7f3;
+  --sidebar-bg: #090e0d;
+  --sidebar-current: #17211f;
+  --sidebar-line: #1d2826;
+  --topbar-bg: #090e0d;
+  --radius: 12px;
+  --shadow: 0 0 0 1px rgb(255 255 255 / 0.02), 0 12px 30px rgb(0 0 0 / 0.35);
+  --gear: #eef1ec;
+  --gear-hole: #0c1211;
+}
+
+/* a thin flame line across the very top */
+.v-forge::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--flame); z-index: 6; }
+.v-forge .brand-name b { color: transparent; background: var(--flame); -webkit-background-clip: text; background-clip: text; }
+.v-forge .topbar-title { font: 600 15px/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.v-forge .avatar { background: var(--surface-2); color: var(--accent); box-shadow: inset 0 0 0 1px var(--line); }
+
+.v-forge .main { background: radial-gradient(1200px 500px at 50% 115%, rgb(253 151 39 / 0.1), transparent 60%), var(--bg); }
+
+.v-forge .new-chat { background: var(--flame); color: var(--accent-ink); border: 0; font: 700 16px/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; padding: 12px; }
+.v-forge .new-chat kbd { color: var(--accent-ink); opacity: 0.6; }
+.v-forge .chat-group h3 { color: #5f716c; }
+.v-forge .chat-group li.current { box-shadow: inset 3px 0 0 #fd9727; }
+.v-forge .meter-fill { background: var(--flame); }
+
+.v-forge .msg.user .bubble { border-radius: 14px 14px 4px 14px; }
+.v-forge .avatar-bot { border-radius: 10px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.v-forge .formula { background: var(--surface); border-left: 0; box-shadow: inset 3px 0 0 #fd9727, inset 0 0 0 1px var(--line); }
+.v-forge .formula code { color: var(--accent); }
+.v-forge .table-wrap { background: var(--surface); }
+.v-forge .answer th { background: var(--surface-2); color: var(--muted); }
+.v-forge .answer tr.total td { color: var(--accent); }
+.v-forge .sources a { background: var(--surface); }
+.v-forge .sources a:hover { border-color: #fd9727; }
+.v-forge .cursor { background: var(--flame); }
+
+.v-forge .composer { background: var(--surface); border-color: #2c3a37; box-shadow: 0 0 0 4px rgb(254 204 7 / 0.05), var(--shadow); }
+.v-forge .send { background: var(--flame); }
+.v-forge .stop { background: transparent; border-color: #fd9727; color: #fdb357; }
+
+.v-forge .empty h1 { text-transform: uppercase; font-size: 54px; letter-spacing: 0.02em; }
+.v-forge .empty h1::after { content: ""; display: block; width: 72px; height: 4px; margin: 16px auto 0; border-radius: 4px; background: var(--flame); }
+.v-forge .eyebrow { color: #fd9727; }
+.v-forge .empty-mark .logo { filter: drop-shadow(0 0 24px rgb(253 151 39 / 0.45)); }
+.v-forge .suggestion { background: var(--surface); }
+.v-forge .suggestion:hover { border-color: #fd9727; }
+.v-forge .suggestion .tag { color: #fdb357; }
+
+.v-forge.signin { background: #070b0a; }
+.v-forge .signin-art::before {
+  content: "5804"; position: absolute; right: -2vw; bottom: -6vw; font: 800 34vw/0.8 var(--font-display);
+  color: transparent; -webkit-text-stroke: 1px rgb(253 151 39 / 0.16); letter-spacing: -0.02em;
+}
+.v-forge .signin-glow { position: absolute; inset: 0; background: radial-gradient(700px 420px at 50% 40%, rgb(253 151 39 / 0.22), transparent 70%); }
+.v-forge .signin-card { background: rgb(19 27 25 / 0.86); backdrop-filter: blur(8px); border-color: #2a3835; box-shadow: 0 30px 80px rgb(0 0 0 / 0.6); }
+.v-forge.signin h1 { text-transform: uppercase; font-size: 40px; }
+.v-forge .signin-card .logo { filter: drop-shadow(0 0 28px rgb(253 151 39 / 0.5)); }
+.v-forge .signin-foot { color: #6c7e79; }

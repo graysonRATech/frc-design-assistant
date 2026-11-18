@@ -1,0 +1,21 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": false,
+  "tailwind": {
+    "config": "",
+    "css": "src/bakeoff/shadcn/shadcn.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/bakeoff/shadcn/components",
+    "ui": "@/bakeoff/shadcn/components/ui",
+    "utils": "@/bakeoff/shadcn/lib/utils",
+    "lib": "@/bakeoff/shadcn/lib",
+    "hooks": "@/bakeoff/shadcn/hooks"
+  },
+  "iconLibrary": "lucide"
+}
