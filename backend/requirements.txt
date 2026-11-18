@@ -1,2 +1,5 @@
-# Bundled into the chat Lambda by scripts/build_lambda.py (boto3 comes from the Lambda runtime).
+# Bundled into the chat Lambdas by scripts/build_lambda.py (boto3 comes from the Lambda runtime).
 anthropic[bedrock]==2.8.0
+# Cognito ID-token checks in the streaming function (server.py).
+pyjwt[crypto]==2.15.1
+cryptography==50.0.2

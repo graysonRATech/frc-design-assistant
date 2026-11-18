@@ -64,12 +64,13 @@ Source: https://www.frcdesign.org/design-handbook/structure/fasteners/#imperial
 |---|---|
 | S3 bucket | Chunk files under `kb/`, ingest manifests under `manifests/` |
 | S3 Vectors index + Bedrock Knowledge Base | Titan Text Embeddings V2 (1024-d); the data source uses chunking `NONE`, since files arrive pre-chunked |
-| Chat Lambda (`backend/chat_api`) | Retrieves the top 6 chunks, asks Claude Sonnet 5.5 (effort `low`), returns the answer with cited sources |
-| DynamoDB table | Audit log (question, answer, sources, tokens and cost per request; 365-day TTL) and spend counters |
+| Chat Lambda (`backend/chat_api`) | Retrieves the top 6 chunks, asks Claude (set in `model`), returns the answer with cited sources. Also serves saved chats |
+| Chat stream function (`chat_api/server.py`) | Same pipeline, streamed to the page through a Lambda function URL (API Gateway can't stream). Python Lambdas can't stream on their own, so it runs behind the AWS [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) layer and checks the Cognito ID token itself. Shares the chat Lambda's role, so the Budgets kill switch covers it |
+| DynamoDB table | Audit log (question, answer, sources, tokens and cost per request; 365-day TTL), spend counters, and saved chats (deleted `chat_retention_days` after their last message, or by the student) |
 | AWS Budgets | Email at 50/80/100% of the monthly budget and on forecast; at 120% an IAM deny on all Bedrock calls |
 | Cognito user pool | Google sign-in only. Allowlist triggers (`backend/auth_triggers`) reject anyone not added with `kb users add`, on sign-up and on every token refresh |
-| HTTP API | `POST /chat` and `POST /feedback`, both behind a Cognito JWT authorizer; throttled to 5 req/s |
-| CloudFront + S3 | The chat page (`web/`, plain HTML/JS, no build step) with a strict Content-Security-Policy |
+| HTTP API | `POST /chat`, `POST /feedback` and the saved-chat routes (`/chats`), all behind a Cognito JWT authorizer; throttled to 5 req/s |
+| CloudFront + S3 | The chat page (`web/`, plain HTML/JS, no build step) with a strict Content-Security-Policy: saved chats in a sidebar, streamed answers with Stop, copy, retry and edit-last-question |
 
 ### One-time setup
 

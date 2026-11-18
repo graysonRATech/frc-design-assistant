@@ -17,7 +17,7 @@ kb = "frcrag.cli:main"
 aws = [
     "boto3[crt]>=1.44.3",
 ]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pyjwt[crypto]>=2.15.1"]
 infra = [
     "aws-cdk-lib>=2.277.0",
     "constructs>=10.8.1",

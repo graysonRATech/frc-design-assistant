@@ -27,6 +27,7 @@ class DeployConfig:
     price_output_per_mtok: float
     lambda_reserved_concurrency: int
     audit_retention_days: int
+    chat_retention_days: int
     google_client_id: str
     google_secret_name: str
     auth_domain_prefix: str
@@ -67,6 +68,7 @@ def load(path: Path | None = None) -> DeployConfig:
         price_output_per_mtok=float(model["price_output_per_mtok"]),
         lambda_reserved_concurrency=int(data["lambda_reserved_concurrency"]),
         audit_retention_days=int(data["audit_retention_days"]),
+        chat_retention_days=_positive("chat_retention_days", data.get("chat_retention_days", 90)),
         google_client_id=str(web["google_client_id"] or ""),
         google_secret_name=web["google_secret_name"],
         auth_domain_prefix=web["auth_domain_prefix"] or f"frc-rag-{data['account']}",
@@ -76,6 +78,12 @@ def load(path: Path | None = None) -> DeployConfig:
         api_burst=int(web["api_burst"]),
         github_repo=_github_repo(data["github"]["repo"]),
     )
+
+
+def _positive(name: str, value) -> int:
+    if int(value) < 1:
+        raise ValueError(f"{name} must be at least 1")
+    return int(value)
 
 
 def _endpoint(value: str) -> str:

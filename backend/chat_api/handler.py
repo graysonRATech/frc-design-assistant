@@ -1,9 +1,12 @@
 """Chat Lambda: retrieve from the Knowledge Base, answer with Claude, cite, log, and meter spend.
 
 Invoked two ways, both returning an API Gateway-style response:
-- HTTP API with a JWT authorizer (phase 3): the user comes from the verified token claims.
+- HTTP API with a JWT authorizer: the user comes from the verified token claims. Besides
+  POST /chat, it serves the saved-chat routes (list, open, rename, delete, stop).
 - Direct `lambda:InvokeFunction` (the `kb ask` CLI): the caller already holds IAM rights to the
   function, so the `user` field in the payload is trusted.
+
+The web page streams answers from a separate function (server.py) that shares the helpers here.
 """
 
 import json
@@ -15,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from functools import cache
 
+from .conversations import ChatNotFound, Conversations
 from .prompt import SYSTEM_PROMPT, build_user_message, cited_sources, sources_from_retrieval
 from .usage import LimitExceeded, Limits, Pricing, UsageLedger
 
@@ -35,6 +39,7 @@ class Settings:
     limits: Limits
     pricing: Pricing
     audit_retention_days: int
+    chat_retention_days: int = 90
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -50,6 +55,7 @@ class Settings:
             limits=Limits(float(env.get("USER_DAILY_LIMIT_USD", "0.50")), float(env.get("MONTHLY_LIMIT_USD", "20"))),
             pricing=Pricing(float(env.get("PRICE_INPUT_PER_MTOK", "2")), float(env.get("PRICE_OUTPUT_PER_MTOK", "10"))),
             audit_retention_days=int(env.get("AUDIT_RETENTION_DAYS", "365")),
+            chat_retention_days=int(env.get("CHAT_RETENTION_DAYS", "90")),
         )
 
 
@@ -62,7 +68,7 @@ class Dependencies:
 
 
 @cache
-def _default_dependencies() -> Dependencies:
+def _default_dependencies(claude_timeout: float = 24.0) -> Dependencies:
     import boto3
     from anthropic import AnthropicBedrock, AnthropicBedrockMantle
 
@@ -73,7 +79,8 @@ def _default_dependencies() -> Dependencies:
         settings=settings,
         agent_runtime=boto3.client("bedrock-agent-runtime", region_name=region),
         # API Gateway gives up at 29 s, so one bounded attempt plus one quick retry on throttling.
-        claude=client(aws_region=region, timeout=24.0, max_retries=1),
+        # The streaming function has no such ceiling and passes a longer timeout.
+        claude=client(aws_region=region, timeout=claude_timeout, max_retries=1),
         table=boto3.resource("dynamodb", region_name=region).Table(settings.table_name),
     )
 
@@ -92,12 +99,72 @@ def lambda_handler(event, context, deps: Dependencies | None = None):
             return _response(401, {"error": "Unauthenticated"})
         if not ALLOWED_GROUPS.intersection(groups):
             return _response(403, {"error": "Your account doesn't have access. Ask a mentor."})
-        if event.get("routeKey") == "POST /feedback":
+        route = event.get("routeKey", "")
+        if route == "POST /feedback":
             return _feedback(deps, user_id, _json_body(event))
+        if route in CHAT_ROUTES:
+            return _chats(deps, route, user_id, event)
         payload = _payload(event)
     except ValueError as error:
         return _response(400, {"error": str(error)})
     return _answer(deps, request_id, user_id, groups, payload)
+
+
+CHAT_ROUTES = ("GET /chats", "GET /chats/{id}", "PATCH /chats/{id}", "DELETE /chats/{id}", "POST /chats/stop")
+
+
+def _chats(deps: Dependencies, route: str, user_id: str, event: dict):
+    chats = Conversations(deps.table, deps.settings.chat_retention_days)
+    chat_id = (event.get("pathParameters") or {}).get("id", "")
+    try:
+        if route == "GET /chats":
+            return _response(200, {"chats": chats.list(user_id)})
+        if route == "GET /chats/{id}":
+            return _response(200, chats.get(user_id, chat_id))
+        if route == "DELETE /chats/{id}":
+            chats.delete(user_id, chat_id)
+            return _response(200, {"ok": True})
+        body = _json_body(event)
+        if route == "PATCH /chats/{id}":
+            if not isinstance(body.get("title"), str):
+                raise ValueError("'title' is required")
+            return _response(200, {"title": chats.rename(user_id, chat_id, body["title"])})
+        if not isinstance(body.get("request_id"), str) or not body["request_id"]:
+            raise ValueError("'request_id' is required")
+        chats.request_stop(user_id, body["request_id"], datetime.now(UTC))
+        return _response(200, {"ok": True})
+    except ChatNotFound:
+        return _response(404, {"error": "That chat doesn't exist, or it was deleted."})
+
+
+def limit_message(scope: str) -> str:
+    if scope == "daily":
+        return "You've reached today's question limit. It resets at midnight UTC."
+    return "The team's monthly assistant budget is used up. Let a mentor know."
+
+
+def retrieve_sources(deps: Dependencies, question: str):
+    retrieved = deps.agent_runtime.retrieve(
+        knowledgeBaseId=deps.settings.knowledge_base_id,
+        retrievalQuery={"text": question},
+        retrievalConfiguration={"vectorSearchConfiguration": {"numberOfResults": deps.settings.top_k}},
+    )["retrievalResults"]
+    return sources_from_retrieval(retrieved)
+
+
+def claude_request(settings: Settings, history: list[dict], question: str, sources) -> dict:
+    options = {"output_config": {"effort": settings.effort}} if settings.effort else {}
+    return {
+        "model": settings.model_id,
+        "max_tokens": settings.max_tokens,
+        "system": SYSTEM_PROMPT,
+        "messages": [*history, {"role": "user", "content": build_user_message(question, sources)}],
+        **options,
+    }
+
+
+REFUSAL_ANSWER = "I can't help with that one. Try rephrasing, or ask a mentor."
+CUT_OFF_NOTE = "\n\n*(Answer cut off at the length limit. Ask a narrower follow-up for the rest.)*"
 
 
 def _feedback(deps: Dependencies, user_id: str, body: dict):
@@ -130,40 +197,22 @@ def _answer(deps: Dependencies, request_id: str, user_id: str, groups: list[str]
     try:
         ledger.check(user_id, now)
     except LimitExceeded as error:
-        _audit(deps, request_id, user_id, now, question, outcome=f"limit:{error.scope}")
-        message = (
-            "You've reached today's question limit. It resets at midnight UTC."
-            if error.scope == "daily"
-            else "The team's monthly assistant budget is used up. Let a mentor know."
-        )
-        return _response(429, {"error": message, "limit": error.scope})
+        audit(deps, request_id, user_id, now, question, outcome=f"limit:{error.scope}")
+        return _response(429, {"error": limit_message(error.scope), "limit": error.scope})
 
     started = time.monotonic()
-    retrieved = deps.agent_runtime.retrieve(
-        knowledgeBaseId=settings.knowledge_base_id,
-        retrievalQuery={"text": question},
-        retrievalConfiguration={"vectorSearchConfiguration": {"numberOfResults": settings.top_k}},
-    )["retrievalResults"]
-    sources = sources_from_retrieval(retrieved)
-
-    options = {"output_config": {"effort": settings.effort}} if settings.effort else {}
-    message = deps.claude.messages.create(
-        model=settings.model_id,
-        max_tokens=settings.max_tokens,
-        system=SYSTEM_PROMPT,
-        messages=[*payload["history"], {"role": "user", "content": build_user_message(question, sources)}],
-        **options,
-    )
+    sources = retrieve_sources(deps, question)
+    message = deps.claude.messages.create(**claude_request(settings, payload["history"], question, sources))
     answer = "".join(block.text for block in message.content if block.type == "text").strip()
     if message.stop_reason == "refusal":
-        answer = "I can't help with that one. Try rephrasing, or ask a mentor."
+        answer = REFUSAL_ANSWER
     elif message.stop_reason == "max_tokens":
-        answer += "\n\n*(Answer cut off at the length limit. Ask a narrower follow-up for the rest.)*"
+        answer += CUT_OFF_NOTE
 
     usage = message.usage
     cost = ledger.charge(user_id, now, usage.input_tokens, usage.output_tokens)
     cited = cited_sources(answer, sources)
-    _audit(
+    audit(
         deps,
         request_id,
         user_id,
@@ -225,10 +274,10 @@ def _payload(event: dict) -> dict:
         raise ValueError("'question' is required")
     if len(question) > MAX_QUESTION_CHARS:
         raise ValueError(f"'question' must be at most {MAX_QUESTION_CHARS} characters")
-    return {"question": question.strip(), "history": _history(body.get("history"))}
+    return {"question": question.strip(), "history": history_for_claude(body.get("history"))}
 
 
-def _history(raw) -> list[dict]:
+def history_for_claude(raw) -> list[dict]:
     """Keep the most recent well-formed user/assistant pairs; drop anything else."""
     if not isinstance(raw, list):
         return []
@@ -245,7 +294,7 @@ def _history(raw) -> list[dict]:
     return [m for pair in pairs[-(MAX_HISTORY_MESSAGES // 2) :] for m in pair]
 
 
-def _audit(deps: Dependencies, request_id: str, user_id: str, now: datetime, question: str, **fields):
+def audit(deps: Dependencies, request_id: str, user_id: str, now: datetime, question: str, **fields):
     expires = now + timedelta(days=deps.settings.audit_retention_days)
     item = {
         "pk": f"AUDIT#{user_id}",
@@ -260,4 +309,4 @@ def _audit(deps: Dependencies, request_id: str, user_id: str, now: datetime, que
 
 
 def _response(status: int, body: dict) -> dict:
-    return {"statusCode": status, "headers": {"content-type": "application/json"}, "body": json.dumps(body)}
+    return {"statusCode": status, "headers": {"content-type": "application/json"}, "body": json.dumps(body, default=str)}

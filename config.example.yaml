@@ -31,6 +31,7 @@ model:
 # have a 10-execution concurrency quota and can't reserve any until it's raised.
 lambda_reserved_concurrency: 0
 audit_retention_days: 365
+chat_retention_days: 90        # saved chats are deleted this long after their last message
 
 # Student sign-in (Google via Cognito) and the chat page.
 web:

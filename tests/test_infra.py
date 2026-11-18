@@ -101,7 +101,15 @@ def test_config_rejects_app_cap_above_budget(tmp_path):
 
 def test_api_requires_cognito_jwt_on_every_route(template):
     routes = template.find_resources("AWS::ApiGatewayV2::Route")
-    assert {r["Properties"]["RouteKey"] for r in routes.values()} == {"POST /chat", "POST /feedback"}
+    assert {r["Properties"]["RouteKey"] for r in routes.values()} == {
+        "POST /chat",
+        "POST /feedback",
+        "GET /chats",
+        "GET /chats/{id}",
+        "PATCH /chats/{id}",
+        "DELETE /chats/{id}",
+        "POST /chats/stop",
+    }
     assert all(r["Properties"]["AuthorizationType"] == "JWT" for r in routes.values())
     template.has_resource_properties("AWS::ApiGatewayV2::Authorizer", {"AuthorizerType": "JWT"})
 
@@ -177,6 +185,26 @@ def _stack_from(tmp_path, local_yaml: str) -> Template:
 
 
 CERT = "arn:aws:acm:us-east-1:123456789012:certificate/abc"
+
+
+def test_streaming_function_url_streams_and_shares_the_chat_role(template):
+    url = next(iter(template.find_resources("AWS::Lambda::Url").values()))["Properties"]
+    assert url["InvokeMode"] == "RESPONSE_STREAM" and url["AuthType"] == "NONE"
+    assert url["Cors"]["AllowMethods"] == ["POST"] and "authorization" in url["Cors"]["AllowHeaders"]
+    functions = template.find_resources("AWS::Lambda::Function", {"Properties": {"Handler": "run.sh"}})
+    stream = next(iter(functions.values()))["Properties"]
+    assert stream["Layers"] == ["arn:aws:lambda:us-east-1:753240598075:layer:LambdaAdapterLayerArm64:30"]
+    env = stream["Environment"]["Variables"]
+    assert env["AWS_LAMBDA_EXEC_WRAPPER"] == "/opt/bootstrap" and env["AWS_LWA_INVOKE_MODE"] == "response_stream"
+    assert {"USER_POOL_ID", "WEB_CLIENT_ID", "MODEL_ID", "CHAT_RETENTION_DAYS"} <= set(env)
+    chat = next(iter(template.find_resources("AWS::Lambda::Function", {"Properties": {"Handler": "chat_api.handler.lambda_handler"}}).values()))
+    assert stream["Role"] == chat["Properties"]["Role"]  # same rights, same Budgets kill switch
+
+
+def test_csp_allows_the_streaming_url(template):
+    policy = next(iter(template.find_resources("AWS::CloudFront::ResponseHeadersPolicy").values()))
+    csp = policy["Properties"]["ResponseHeadersPolicyConfig"]["SecurityHeadersConfig"]["ContentSecurityPolicy"]["ContentSecurityPolicy"]
+    assert "https://*.lambda-url.us-east-1.on.aws" in csp
 
 
 def test_custom_domain_is_served_and_allowed_for_sign_in(tmp_path):

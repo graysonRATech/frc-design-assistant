@@ -25,7 +25,16 @@ CHUNKS_PREFIX = "kb/"  # chunk files; manifests live under manifests/ and are no
 
 class FrcRagStack(Stack):
     def __init__(
-        self, scope: Construct, construct_id: str, *, config: DeployConfig, chat_code: Path, backend_dir: Path, web_dir: Path, **kwargs
+        self,
+        scope: Construct,
+        construct_id: str,
+        *,
+        config: DeployConfig,
+        chat_code: Path,
+        backend_dir: Path,
+        web_dir: Path,
+        stream_code: Path | None = None,
+        **kwargs,
     ):
         super().__init__(scope, construct_id, **kwargs)
 
@@ -146,6 +155,21 @@ class FrcRagStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,  # audit log
         )
 
+        chat_environment = {
+            "KNOWLEDGE_BASE_ID": knowledge_base.attr_knowledge_base_id,
+            "TABLE_NAME": table.table_name,
+            "MODEL_ID": config.model_id,
+            "CLAUDE_ENDPOINT": config.model_endpoint,
+            "MAX_TOKENS": str(config.max_tokens),
+            "EFFORT": config.effort,
+            "TOP_K": str(config.top_k),
+            "USER_DAILY_LIMIT_USD": str(config.user_daily_usd),
+            "MONTHLY_LIMIT_USD": str(config.monthly_usd),
+            "PRICE_INPUT_PER_MTOK": str(config.price_input_per_mtok),
+            "PRICE_OUTPUT_PER_MTOK": str(config.price_output_per_mtok),
+            "AUDIT_RETENTION_DAYS": str(config.audit_retention_days),
+            "CHAT_RETENTION_DAYS": str(config.chat_retention_days),
+        }
         chat = lambda_.Function(
             self,
             "ChatFunction",
@@ -159,20 +183,7 @@ class FrcRagStack(Stack):
             log_group=logs.LogGroup(
                 self, "ChatLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY
             ),
-            environment={
-                "KNOWLEDGE_BASE_ID": knowledge_base.attr_knowledge_base_id,
-                "TABLE_NAME": table.table_name,
-                "MODEL_ID": config.model_id,
-                "CLAUDE_ENDPOINT": config.model_endpoint,
-                "MAX_TOKENS": str(config.max_tokens),
-                "EFFORT": config.effort,
-                "TOP_K": str(config.top_k),
-                "USER_DAILY_LIMIT_USD": str(config.user_daily_usd),
-                "MONTHLY_LIMIT_USD": str(config.monthly_usd),
-                "PRICE_INPUT_PER_MTOK": str(config.price_input_per_mtok),
-                "PRICE_OUTPUT_PER_MTOK": str(config.price_output_per_mtok),
-                "AUDIT_RETENTION_DAYS": str(config.audit_retention_days),
-            },
+            environment=chat_environment,
         )
         chat.add_to_role_policy(iam.PolicyStatement(actions=["bedrock:Retrieve"], resources=[knowledge_base.attr_knowledge_base_arn]))
         if config.model_endpoint == "mantle":
@@ -194,12 +205,26 @@ class FrcRagStack(Stack):
             )
         chat.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"], resources=[table.table_arn]
+                actions=["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:DeleteItem"],
+                resources=[table.table_arn],
             )
         )
 
         self._budget_guardrails(config, roles=[chat.role, kb_role])
-        StudentAccess(self, "StudentAccess", config=config, backend_dir=backend_dir, web_dir=web_dir, table=table, chat=chat)
+        StudentAccess(
+            self,
+            "StudentAccess",
+            config=config,
+            backend_dir=backend_dir,
+            web_dir=web_dir,
+            table=table,
+            chat=chat,
+            # The streaming function shares the chat role, so it has the same rights and the same
+            # Budgets kill switch.
+            stream_code=stream_code or chat_code,
+            chat_role=chat.role,
+            chat_environment=chat_environment,
+        )
         if config.github_repo:
             GitHubAccess(
                 self, "GitHubAccess", repo=config.github_repo, content=content, knowledge_base_arn=knowledge_base.attr_knowledge_base_arn

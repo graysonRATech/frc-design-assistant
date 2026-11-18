@@ -1,5 +1,6 @@
 """Student-facing pieces: Cognito with Google sign-in and the allowlist triggers, the HTTP API
-with a JWT authorizer in front of the chat Lambda, and the static chat page on CloudFront."""
+with a JWT authorizer in front of the chat Lambda, the streaming chat function, and the static
+chat page on CloudFront."""
 
 from pathlib import Path
 
@@ -22,6 +23,8 @@ from constructs import Construct
 from .config import DeployConfig
 
 TOKEN_LIFETIME = Duration.hours(1)  # also how long a removed student keeps access, at most
+# AWS-published Lambda Web Adapter (github.com/awslabs/aws-lambda-web-adapter), v1.1.0, arm64.
+WEB_ADAPTER_LAYER = "arn:aws:lambda:{region}:753240598075:layer:LambdaAdapterLayerArm64:30"
 
 
 class StudentAccess(Construct):
@@ -35,6 +38,9 @@ class StudentAccess(Construct):
         web_dir: Path,
         table: dynamodb.ITableV2,
         chat: lambda_.IFunction,
+        stream_code: Path,
+        chat_role: iam.IRole,
+        chat_environment: dict[str, str],
     ):
         super().__init__(scope, construct_id)
         stack = Stack.of(self)
@@ -103,7 +109,8 @@ class StudentAccess(Construct):
                 content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
                     content_security_policy=(
                         "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-                        f"connect-src 'self' https://*.execute-api.{stack.region}.amazonaws.com https://*.amazoncognito.com; "
+                        f"connect-src 'self' https://*.execute-api.{stack.region}.amazonaws.com "
+                        f"https://*.lambda-url.{stack.region}.on.aws https://*.amazoncognito.com; "
                         "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
                     ),
                     override=True,
@@ -162,12 +169,47 @@ class StudentAccess(Construct):
         if google:
             client.node.add_dependency(google)
 
+        # Answers stream from a function URL: API Gateway can't stream responses. The URL is
+        # public, so server.py verifies the Cognito ID token on every request itself.
+        stream = lambda_.Function(
+            self,
+            "ChatStream",
+            runtime=lambda_.Runtime.PYTHON_3_13,
+            architecture=lambda_.Architecture.ARM_64,
+            handler="run.sh",
+            code=lambda_.Code.from_asset(str(stream_code)),
+            role=chat_role,
+            layers=[lambda_.LayerVersion.from_layer_version_arn(self, "WebAdapter", WEB_ADAPTER_LAYER.format(region=stack.region))],
+            memory_size=512,
+            timeout=Duration.seconds(120),
+            reserved_concurrent_executions=config.lambda_reserved_concurrency or None,
+            log_group=logs.LogGroup(self, "StreamLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY),
+            environment={
+                **chat_environment,
+                "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bootstrap",
+                "AWS_LWA_INVOKE_MODE": "response_stream",
+                "AWS_LWA_PORT": "8080",
+                "USER_POOL_ID": pool.user_pool_id,
+                "WEB_CLIENT_ID": client.user_pool_client_id,
+            },
+        )
+        stream_url = stream.add_function_url(
+            auth_type=lambda_.FunctionUrlAuthType.NONE,
+            invoke_mode=lambda_.InvokeMode.RESPONSE_STREAM,
+            cors=lambda_.FunctionUrlCorsOptions(
+                allowed_origins=[url.rstrip("/") for url in site_urls],
+                allowed_methods=[lambda_.HttpMethod.POST],
+                allowed_headers=["authorization", "content-type"],
+                max_age=Duration.days(1),
+            ),
+        )
+
         api = apigw.HttpApi(
             self,
             "Api",
             cors_preflight=apigw.CorsPreflightOptions(
                 allow_origins=[url.rstrip("/") for url in site_urls],
-                allow_methods=[apigw.CorsHttpMethod.POST],
+                allow_methods=[apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.PATCH, apigw.CorsHttpMethod.DELETE],
                 allow_headers=["authorization", "content-type"],
                 max_age=Duration.days(1),
             ),
@@ -180,8 +222,15 @@ class StudentAccess(Construct):
         )
         # 29 s is API Gateway's ceiling; the chat Lambda bounds its Claude call to fit inside it.
         integration = integrations.HttpLambdaIntegration("Chat", chat, timeout=Duration.seconds(29))
-        for path in ("/chat", "/feedback"):
-            api.add_routes(path=path, methods=[apigw.HttpMethod.POST], integration=integration, authorizer=authorizer)
+        routes = {
+            "/chat": [apigw.HttpMethod.POST],
+            "/feedback": [apigw.HttpMethod.POST],
+            "/chats": [apigw.HttpMethod.GET],
+            "/chats/{id}": [apigw.HttpMethod.GET, apigw.HttpMethod.PATCH, apigw.HttpMethod.DELETE],
+            "/chats/stop": [apigw.HttpMethod.POST],
+        }
+        for path, methods in routes.items():
+            api.add_routes(path=path, methods=methods, integration=integration, authorizer=authorizer)
         stage = api.default_stage.node.default_child
         stage.default_route_settings = apigw.CfnStage.RouteSettingsProperty(
             throttling_rate_limit=config.api_rate_per_second, throttling_burst_limit=config.api_burst
@@ -199,6 +248,8 @@ class StudentAccess(Construct):
                     "config.json",
                     {
                         "apiUrl": api.api_endpoint,
+                        "streamUrl": stream_url.url,
+                        "chatRetentionDays": config.chat_retention_days,
                         "authDomain": auth_domain,
                         "clientId": client.user_pool_client_id,
                         "redirectUri": site_url,
@@ -210,6 +261,7 @@ class StudentAccess(Construct):
         self.user_pool = pool
         CfnOutput(stack, "WebUrl", value=site_url)
         CfnOutput(stack, "ApiUrl", value=api.api_endpoint)
+        CfnOutput(stack, "StreamUrl", value=stream_url.url)
         CfnOutput(stack, "UserPoolId", value=pool.user_pool_id)
         CfnOutput(stack, "WebClientId", value=client.user_pool_client_id)
         CfnOutput(stack, "GoogleRedirectUri", value=f"{auth_domain}/oauth2/idpresponse")
