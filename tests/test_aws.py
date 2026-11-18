@@ -2,6 +2,8 @@ import hashlib
 import json
 import sys
 
+import pytest
+
 from frcrag import aws
 from frcrag.aws import StackOutputs, plan_sync, score_case
 
@@ -141,3 +143,12 @@ def test_allow_users_writes_lowercased_deduped_entries():
     assert {(i["pk"], i["sk"], i["role"]) for i in written} == {("ALLOW", "a@x.org", "mentor"), ("ALLOW", "b@x.org", "mentor")}
     with pytest.raises(ValueError):
         aws.allow_users(Session(), OUTPUTS, ["a@x.org"], "owner", "coach")
+    assert aws.allow_users(Session(), OUTPUTS, ["@School.org "], "student", "coach") == ["@school.org"]
+    with pytest.raises(ValueError, match="domain entries"):
+        aws.allow_users(Session(), OUTPUTS, ["@school.org"], "admin", "coach")
+
+
+@pytest.mark.parametrize("entry", ["@", "@school", "@-x.org", "@school.org/x", "a@b@c.org"])
+def test_normalize_email_rejects_bad_domains(entry):
+    with pytest.raises(ValueError):
+        aws.normalize_email(entry)

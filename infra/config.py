@@ -31,6 +31,8 @@ class DeployConfig:
     google_secret_name: str
     auth_domain_prefix: str
     extra_web_origins: tuple[str, ...]
+    domain_name: str
+    certificate_arn: str
     api_rate_per_second: float
     api_burst: int
     github_repo: str
@@ -69,6 +71,7 @@ def load(path: Path | None = None) -> DeployConfig:
         google_secret_name=web["google_secret_name"],
         auth_domain_prefix=web["auth_domain_prefix"] or f"frc-rag-{data['account']}",
         extra_web_origins=tuple(o.rstrip("/") for o in web["extra_origins"] or []),
+        **_custom_domain(web.get("domain_name"), web.get("certificate_arn")),
         api_rate_per_second=float(web["api_rate_per_second"]),
         api_burst=int(web["api_burst"]),
         github_repo=_github_repo(data["github"]["repo"]),
@@ -79,6 +82,18 @@ def _endpoint(value: str) -> str:
     if value not in ("mantle", "runtime"):
         raise ValueError("model.endpoint must be 'mantle' or 'runtime'")
     return value
+
+
+def _custom_domain(name, certificate_arn) -> dict:
+    name, certificate_arn = str(name or "").strip().lower(), str(certificate_arn or "").strip()
+    if bool(name) != bool(certificate_arn):
+        raise ValueError("web.domain_name and web.certificate_arn must be set together")
+    if name and not re.fullmatch(r"([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}", name):
+        raise ValueError(f"web.domain_name must be a host name like frc.example.org, got {name!r}")
+    # CloudFront only accepts certificates from us-east-1, whatever region the stack is in.
+    if certificate_arn and not certificate_arn.startswith("arn:aws:acm:us-east-1:"):
+        raise ValueError("web.certificate_arn must be an ACM certificate in us-east-1")
+    return {"domain_name": name, "certificate_arn": certificate_arn}
 
 
 def _github_repo(value) -> str:

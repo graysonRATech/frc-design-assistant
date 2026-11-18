@@ -16,8 +16,9 @@ from .writer import MANIFEST_DIR
 
 CHUNKS_PREFIX = "kb/"  # must match infra/stack.py
 MANIFESTS_PREFIX = "manifests/"
-ROLES = ("student", "mentor", "admin")  # must match backend/auth_triggers
+ROLES = ("student", "mentor", "admin", "blocked")  # must match backend/auth_triggers
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_DOMAIN = re.compile(r"^@([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$")
 
 
 @dataclass(frozen=True)
@@ -141,9 +142,10 @@ def score_case(urls: list[str], expect: list[str]) -> int | None:
 
 
 def normalize_email(email: str) -> str:
+    """An email address, or a whole domain written as @example.org."""
     email = email.strip().lower()
-    if not _EMAIL.match(email):
-        raise ValueError(f"not an email address: {email!r}")
+    if not (_EMAIL.match(email) or _DOMAIN.match(email)):
+        raise ValueError(f"not an email address or @domain: {email!r}")
     return email
 
 
@@ -151,6 +153,8 @@ def allow_users(aws, outputs: StackOutputs, emails: list[str], role: str, added_
     if role not in ROLES:
         raise ValueError(f"role must be one of {', '.join(ROLES)}")
     emails = sorted({normalize_email(e) for e in emails})
+    if role != "student" and any(e.startswith("@") for e in emails):
+        raise ValueError("domain entries can only be students; add mentors and admins by email")
     table = aws.resource("dynamodb").Table(outputs.table)
     now = datetime.now(UTC).isoformat(timespec="seconds")
     with table.batch_writer() as batch:
@@ -180,8 +184,8 @@ def remove_user(aws, outputs: StackOutputs, email: str) -> int:
     """
     email = normalize_email(email)
     aws.resource("dynamodb").Table(outputs.table).delete_item(Key={"pk": "ALLOW", "sk": email})
-    if not outputs.user_pool_id:
-        return 0
+    if email.startswith("@") or not outputs.user_pool_id:
+        return 0  # a domain's users lose access at their next token refresh (at most an hour)
     cognito = aws.client("cognito-idp")
     users = cognito.list_users(UserPoolId=outputs.user_pool_id, Filter=f'email = "{email}"')["Users"]
     for user in users:

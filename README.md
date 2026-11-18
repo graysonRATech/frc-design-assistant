@@ -116,6 +116,8 @@ uv run kb ask "How do I calculate gear center distance?"
 uv run kb users add alex@example.org sam@example.org          # students (default role)
 uv run kb users add --file roster.txt                         # one email per line; keep rosters out of git
 uv run kb users add coach@example.org --role mentor
+uv run kb users add @school.example.org                       # everyone with a verified school Google account
+uv run kb users add former@school.example.org --role blocked  # one address the domain rule would let in
 uv run kb users list
 uv run kb users remove alex@example.org                       # revokes sessions and deletes their sign-in record
 ```
@@ -133,6 +135,18 @@ If the Budgets kill switch fires, detach the `BudgetDenyBedrock` policy from the
 ```sh
 uv run --group infra --group aws pytest    # includes CDK template assertions (~20 s)
 ```
+
+### Custom domain
+
+The site works at its CloudFront address out of the box. To serve it from your own name, such as `frc.example.org`:
+
+1. Request a certificate in **us-east-1** (CloudFront only uses certificates from there):
+   `aws acm request-certificate --region us-east-1 --domain-name frc.example.org --validation-method DNS`
+2. Add the validation CNAME that `aws acm describe-certificate` shows at your DNS provider, and wait for the status `ISSUED`.
+3. Set `web.domain_name` and `web.certificate_arn` in `config.local.yaml` and deploy.
+4. Point the name at the `WebUrl` CloudFront host with a CNAME. On Cloudflare, set the record to **DNS only** (grey cloud): CloudFront already serves HTTPS, and proxying through Cloudflare breaks it.
+
+The CloudFront address keeps working for sign-in, so old links don't break. Google needs no changes.
 
 ## Continuous deployment
 
@@ -152,8 +166,8 @@ One-time setup:
 1. Push this code to a GitHub repository.
 2. Set `github.repo: owner/name` in `config.local.yaml` and deploy once from your machine. This creates the OIDC provider and both roles.
 3. In the repository settings:
-   - **Variables:** `AWS_ACCOUNT_ID`, `GOOGLE_CLIENT_ID` if sign-in is set up, and optionally `MODEL_CONFIG`: JSON overrides for the `model` block (for example `{"id": "us.anthropic.claude-haiku-4-5-20251001-v1:0", "endpoint": "runtime", "effort": "", "price_input_per_mtok": 1, "price_output_per_mtok": 5}`), so CI deploys use the same model as `config.local.yaml`.
-   - **Secrets:** `ALERT_EMAIL` (the budget alert address).
+   - **Variables:** `GOOGLE_CLIENT_ID` if sign-in is set up, and optionally `MODEL_CONFIG`: JSON overrides for the `model` block (for example `{"id": "us.anthropic.claude-haiku-4-5-20251001-v1:0", "endpoint": "runtime", "effort": "", "price_input_per_mtok": 1, "price_output_per_mtok": 5}`), so CI deploys use the same model as `config.local.yaml`. For a custom domain, also `DOMAIN_NAME`.
+   - **Secrets:** `AWS_ACCOUNT_ID` and `ALERT_EMAIL` (the budget alert address), plus `CERTIFICATE_ARN` for a custom domain. Secrets are masked in Actions logs, which are public on a public repo.
    - **Environments:** create `production`. If anyone else can push to main, add yourself as a required reviewer so deploys wait for your approval.
 4. Run **Refresh content** once from the Actions tab to confirm access.
 

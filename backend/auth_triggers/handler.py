@@ -1,4 +1,8 @@
-"""Cognito triggers that enforce the team allowlist (DynamoDB items pk="ALLOW", sk=<email>).
+"""Cognito triggers that enforce the team allowlist (DynamoDB items pk="ALLOW").
+
+Entries are either an email (sk="alex@example.org") or a whole domain (sk="@example.org").
+An email entry always wins, so one person in an allowed domain can be made a mentor or
+blocked. Domain entries only match addresses Google reports as verified.
 
 - Pre sign-up: a Google account not on the list never gets a user record.
 - Pre token generation: runs on every sign-in *and* token refresh, so removing someone from the
@@ -22,26 +26,35 @@ def _table():
     return boto3.resource("dynamodb").Table(os.environ["TABLE_NAME"])
 
 
-def allowlisted_role(table, email: str) -> str | None:
-    if not email:
+def allowlisted_role(table, email: str, verified: bool = False) -> str | None:
+    email = (email or "").strip().lower()
+    if "@" not in email:
         return None
-    item = table.get_item(Key={"pk": "ALLOW", "sk": email.strip().lower()}, ConsistentRead=True).get("Item")
-    role = item.get("role") if item else None
-    return role if role in ROLES else None
+    role = _entry_role(table, email)
+    if role is None and verified:
+        role = _entry_role(table, "@" + email.rsplit("@", 1)[1])
+    return role if role in ROLES else None  # "blocked" (or anything unknown) means no access
+
+
+def _entry_role(table, key: str) -> str | None:
+    item = table.get_item(Key={"pk": "ALLOW", "sk": key}, ConsistentRead=True).get("Item")
+    return str(item.get("role") or "none") if item else None
 
 
 def lambda_handler(event, context, table=None):
     table = table or _table()
     source = event["triggerSource"]
-    email = event["request"]["userAttributes"].get("email", "")
+    attributes = event["request"]["userAttributes"]
+    email = attributes.get("email", "")
+    verified = str(attributes.get("email_verified", "")).lower() == "true"
 
     if source.startswith("PreSignUp"):
-        if not allowlisted_role(table, email):
+        if not allowlisted_role(table, email, verified):
             raise PermissionError(NOT_ALLOWED)
         return event
 
     if source.startswith("TokenGeneration"):
-        role = allowlisted_role(table, email)
+        role = allowlisted_role(table, email, verified)
         if not role:
             raise PermissionError(NOT_ALLOWED)
         event["response"]["claimsOverrideDetails"] = {"groupOverrideDetails": {"groupsToOverride": [role]}}

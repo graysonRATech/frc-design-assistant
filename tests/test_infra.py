@@ -161,6 +161,58 @@ def _stack_with_repo(tmp_path, repo: str) -> Template:
     return Template.from_stack(stack)
 
 
+def _stack_from(tmp_path, local_yaml: str) -> Template:
+    local = tmp_path / "config.local.yaml"
+    local.write_text(local_yaml, encoding="utf-8")
+    stack = FrcRagStack(
+        App(),
+        "Test",
+        config=load(local),
+        chat_code=ROOT / "backend",
+        backend_dir=ROOT / "backend",
+        web_dir=ROOT / "web",
+        env=Environment(account="123456789012", region="us-east-1"),
+    )
+    return Template.from_stack(stack)
+
+
+CERT = "arn:aws:acm:us-east-1:123456789012:certificate/abc"
+
+
+def test_custom_domain_is_served_and_allowed_for_sign_in(tmp_path):
+    template = _stack_from(tmp_path, f"web:\n  domain_name: FRC.Example.org\n  certificate_arn: {CERT}\n")
+    template.has_resource_properties(
+        "AWS::CloudFront::Distribution",
+        {"DistributionConfig": Match.object_like({"Aliases": ["frc.example.org"], "ViewerCertificate": Match.object_like({"AcmCertificateArn": CERT})})},
+    )
+    client = next(iter(template.find_resources("AWS::Cognito::UserPoolClient").values()))["Properties"]
+    assert client["CallbackURLs"][0] == "https://frc.example.org/" and len(client["CallbackURLs"]) == 2
+    api = next(iter(template.find_resources("AWS::ApiGatewayV2::Api").values()))["Properties"]
+    assert "https://frc.example.org" in api["CorsConfiguration"]["AllowOrigins"]
+    assert template.to_json()["Outputs"]["WebUrl"]["Value"] == "https://frc.example.org/"
+
+
+def test_no_alias_without_custom_domain(template):
+    distribution = next(iter(template.find_resources("AWS::CloudFront::Distribution").values()))
+    assert "Aliases" not in distribution["Properties"]["DistributionConfig"]
+
+
+@pytest.mark.parametrize(
+    "web",
+    [
+        "domain_name: frc.example.org",
+        f"certificate_arn: {CERT}",
+        f"domain_name: frc.example.org\n  certificate_arn: {CERT.replace('us-east-1', 'us-west-2')}",
+        f"domain_name: https://frc.example.org\n  certificate_arn: {CERT}",
+    ],
+)
+def test_custom_domain_settings_are_validated(tmp_path, web):
+    local = tmp_path / "config.local.yaml"
+    local.write_text(f"web:\n  {web}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="domain_name|certificate_arn"):
+        load(local)
+
+
 def test_no_github_access_without_repo(template):
     template.resource_count_is("AWS::IAM::OIDCProvider", 0)
     assert not [k for k in template.to_json()["Outputs"] if k.startswith("GitHub")]

@@ -27,7 +27,12 @@ def build(env: dict[str, str]) -> dict:
     config = {
         "account": env["AWS_ACCOUNT_ID"].strip(),
         "alert_email": env["ALERT_EMAIL"].strip(),
-        "web": {"google_client_id": env.get("GOOGLE_CLIENT_ID", "").strip()},
+        "web": {
+            "google_client_id": env.get("GOOGLE_CLIENT_ID", "").strip(),
+            # Optional custom domain (README "Custom domain"); the ARN names the account, so it's a secret.
+            "domain_name": env.get("DOMAIN_NAME", "").strip(),
+            "certificate_arn": env.get("CERTIFICATE_ARN", "").strip(),
+        },
         # The repo running the workflow, so the OIDC trust always matches where deploys come from.
         "github": {"repo": env["GITHUB_REPOSITORY"].strip()},
     }

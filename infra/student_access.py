@@ -7,6 +7,7 @@ from aws_cdk import CfnOutput, Duration, RemovalPolicy, SecretValue, Stack
 from aws_cdk import aws_apigatewayv2 as apigw
 from aws_cdk import aws_apigatewayv2_authorizers as authorizers
 from aws_cdk import aws_apigatewayv2_integrations as integrations
+from aws_cdk import aws_certificatemanager as acm
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
 from aws_cdk import aws_cognito as cognito
@@ -117,9 +118,18 @@ class StudentAccess(Construct):
                 ),
             ),
         )
+        custom = (
+            {
+                "domain_names": [config.domain_name],
+                "certificate": acm.Certificate.from_certificate_arn(self, "Certificate", config.certificate_arn),
+            }
+            if config.domain_name
+            else {}
+        )
         distribution = cloudfront.Distribution(
             self,
             "Cdn",
+            **custom,
             default_root_object="index.html",
             price_class=cloudfront.PriceClass.PRICE_CLASS_100,
             default_behavior=cloudfront.BehaviorOptions(
@@ -128,7 +138,10 @@ class StudentAccess(Construct):
                 response_headers_policy=headers,
             ),
         )
-        site_url = f"https://{distribution.distribution_domain_name}/"
+        cloudfront_url = f"https://{distribution.distribution_domain_name}/"
+        site_url = f"https://{config.domain_name}/" if config.domain_name else cloudfront_url
+        # Both addresses stay valid for sign-in, so old links keep working after a domain is added.
+        site_urls = list(dict.fromkeys([site_url, cloudfront_url, *config.extra_web_origins_slash]))
 
         client = pool.add_client(
             "Web",
@@ -137,8 +150,8 @@ class StudentAccess(Construct):
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(authorization_code_grant=True),
                 scopes=[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-                callback_urls=[site_url, *config.extra_web_origins_slash],
-                logout_urls=[site_url, *config.extra_web_origins_slash],
+                callback_urls=site_urls,
+                logout_urls=site_urls,
             ),
             id_token_validity=TOKEN_LIFETIME,
             access_token_validity=TOKEN_LIFETIME,
@@ -153,7 +166,7 @@ class StudentAccess(Construct):
             self,
             "Api",
             cors_preflight=apigw.CorsPreflightOptions(
-                allow_origins=[site_url.rstrip("/"), *config.extra_web_origins],
+                allow_origins=[url.rstrip("/") for url in site_urls],
                 allow_methods=[apigw.CorsHttpMethod.POST],
                 allow_headers=["authorization", "content-type"],
                 max_age=Duration.days(1),

@@ -45,3 +45,11 @@ def test_model_config_overrides_the_model_block(tmp_path):
 def test_model_config_rejects_bad_values(raw):
     with pytest.raises(SystemExit, match="MODEL_CONFIG"):
         build({**BASE, "MODEL_CONFIG": raw})
+
+
+def test_custom_domain_comes_from_environment(tmp_path):
+    cert = "arn:aws:acm:us-east-1:111122223333:certificate/abc"
+    local = tmp_path / "config.local.yaml"
+    local.write_text(yaml.safe_dump(build({**BASE, "DOMAIN_NAME": "frc.example.org", "CERTIFICATE_ARN": cert})), encoding="utf-8")
+    config = load(local)
+    assert (config.domain_name, config.certificate_arn) == ("frc.example.org", cert)

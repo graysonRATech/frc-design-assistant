@@ -62,10 +62,17 @@ def main(argv: list[str] | None = None) -> int:
 
     users = commands.add_parser("users", parents=[aws_options], help="manage who can sign in")
     user_commands = users.add_subparsers(dest="user_command", required=True)
-    add = user_commands.add_parser("add", help="allow emails to sign in (re-adding changes the role)")
+    add = user_commands.add_parser(
+        "add", help="allow emails, or a whole domain as @school.org, to sign in (re-adding changes the role)"
+    )
     add.add_argument("emails", nargs="*", metavar="EMAIL")
     add.add_argument("--file", type=Path, help="text file with one email per line (keep it out of git)")
-    add.add_argument("--role", choices=("student", "mentor", "admin"), default="student")
+    add.add_argument(
+        "--role",
+        choices=("student", "mentor", "admin", "blocked"),
+        default="student",
+        help="blocked: deny one address that an allowed domain would let in",
+    )
     remove = user_commands.add_parser("remove", help="revoke access and delete the sign-in record")
     remove.add_argument("emails", nargs="+", metavar="EMAIL")
     user_commands.add_parser("list", help="show the allowlist")

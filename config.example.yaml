@@ -41,6 +41,10 @@ web:
   google_secret_name: frcrag/google-oauth
   auth_domain_prefix: ""        # default: frc-rag-<account id>
   extra_origins: []             # e.g. [http://localhost:5173] for local development
+  # Optional custom address, e.g. frc.example.org. Needs an ACM certificate for it in us-east-1
+  # (README "Custom domain"); the CloudFront address keeps working too.
+  domain_name: ""
+  certificate_arn: ""
   api_rate_per_second: 5        # API Gateway throttle across all users
   api_burst: 10
 
