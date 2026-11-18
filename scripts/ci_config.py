@@ -34,11 +34,18 @@ def build(env: dict[str, str]) -> dict:
             "certificate_arn": env.get("CERTIFICATE_ARN", "").strip(),
         },
         # The repo running the workflow, so the OIDC trust always matches where deploys come from.
-        "github": {"repo": env["GITHUB_REPOSITORY"].strip()},
+        "github": {"repo": _oidc_repo(env)},
     }
     if model := _model(env.get("MODEL_CONFIG", "")):
         config["model"] = model
     return config
+
+
+def _oidc_repo(env: dict[str, str]) -> str:
+    """owner@id/name@id, the immutable subject GitHub puts in OIDC tokens; owner/name if IDs are absent."""
+    owner, name = env["GITHUB_REPOSITORY"].strip().split("/", 1)
+    owner_id, repo_id = env.get("GITHUB_REPOSITORY_OWNER_ID", "").strip(), env.get("GITHUB_REPOSITORY_ID", "").strip()
+    return f"{owner}@{owner_id}/{name}@{repo_id}" if owner_id and repo_id else f"{owner}/{name}"
 
 
 def _model(raw: str) -> dict:

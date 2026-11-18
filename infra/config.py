@@ -98,8 +98,10 @@ def _custom_domain(name, certificate_arn) -> dict:
 
 def _github_repo(value) -> str:
     repo = str(value or "").strip()
-    if repo and not re.fullmatch(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+", repo):
-        raise ValueError(f"github.repo must look like owner/name, got {repo!r}")
+    # owner/name, or GitHub's immutable form owner@<owner id>/name@<repo id> for repos whose OIDC
+    # tokens use immutable subjects (GitHub's default for new repos).
+    if repo and not re.fullmatch(r"[A-Za-z0-9-]+(@[0-9]+)?/[A-Za-z0-9._-]+(@[0-9]+)?", repo):
+        raise ValueError(f"github.repo must look like owner/name or owner@id/name@id, got {repo!r}")
     return repo
 
 

@@ -251,6 +251,13 @@ def test_github_roles_are_scoped_to_repo_and_context(tmp_path):
     }
 
 
+def test_github_roles_accept_immutable_repo_subjects(tmp_path):
+    template = _stack_with_repo(tmp_path, "team@42/frc-rag@7")
+    roles = template.find_resources("AWS::IAM::Role", {"Properties": {"RoleName": "Test-github-content"}})
+    condition = next(iter(roles.values()))["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]["Condition"]["StringEquals"]
+    assert condition["token.actions.githubusercontent.com:sub"] == "repo:team@42/frc-rag@7:ref:refs/heads/main"
+
+
 def test_github_repo_must_be_owner_slash_name(tmp_path):
     with pytest.raises(ValueError):
         _stack_with_repo(tmp_path, "'team/frc-rag:*'")

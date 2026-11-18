@@ -53,3 +53,8 @@ def test_custom_domain_comes_from_environment(tmp_path):
     local.write_text(yaml.safe_dump(build({**BASE, "DOMAIN_NAME": "frc.example.org", "CERTIFICATE_ARN": cert})), encoding="utf-8")
     config = load(local)
     assert (config.domain_name, config.certificate_arn) == ("frc.example.org", cert)
+
+
+def test_github_repo_uses_immutable_ids_when_available():
+    data = build({**BASE, "GITHUB_REPOSITORY_OWNER_ID": "42", "GITHUB_REPOSITORY_ID": "7"})
+    assert data["github"]["repo"] == "team@42/rag@7"

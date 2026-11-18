@@ -52,4 +52,6 @@ web:
 # e.g. myteam/frc-design-rag, to create OIDC roles that let its workflows deploy and refresh content.
 # Leave empty to skip; nothing in GitHub can reach the account then.
 github:
+  # owner/name, or owner@<owner id>/name@<repo id> if the repo's OIDC tokens use immutable
+  # subjects (see `gh api repos/OWNER/NAME/actions/oidc/customization/sub`).
   repo: ""
