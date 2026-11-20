@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REQUIREMENTS = ROOT / "backend" / "requirements.txt"
 PACKAGE = ROOT / "backend" / "chat_api"
+ALLOWLIST = ROOT / "backend" / "auth_triggers"  # the Slack worker checks the same allowlist
 OUT = ROOT / "build" / "lambda" / "chat"
 STREAM_ZIP = ROOT / "build" / "lambda" / "chat-stream.zip"
 PYTHON_VERSION = "3.13"  # matches lambda_.Runtime.PYTHON_3_13 in infra/
@@ -48,8 +49,9 @@ def build(out: Path = OUT) -> Path:
             check=True,
         )  # fmt: skip
         stamp.write_text(digest)
-    shutil.rmtree(out / PACKAGE.name, ignore_errors=True)
-    shutil.copytree(PACKAGE, out / PACKAGE.name, ignore=shutil.ignore_patterns("__pycache__"))
+    for package in (PACKAGE, ALLOWLIST):
+        shutil.rmtree(out / package.name, ignore_errors=True)
+        shutil.copytree(package, out / package.name, ignore=shutil.ignore_patterns("__pycache__"))
     return out
 
 

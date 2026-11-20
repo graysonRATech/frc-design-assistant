@@ -1,0 +1,34 @@
+# Slack app for the TORCH design assistant. Create it at https://api.slack.com/apps:
+# Create New App > From a manifest > pick the workspace > paste this file. See README "Slack bot".
+#
+# Event subscriptions are added after the first deploy, once the stack has printed its
+# SlackEventsUrl (Slack checks the URL when you save it).
+display_information:
+  name: TORCH Design Assistant
+  description: Cited answers to FRC design, CAD and fabrication questions.
+  background_color: "#0d4641"
+  long_description: >-
+    Mention @TORCH in a channel, or send it a direct message, and it answers in a thread with
+    numbered sources from the team's approved references (FRCDesign.org and others). It uses the
+    same access list and daily limits as frc.ratech.ai. It only reads messages that mention it or
+    are sent to it directly. Source code: github.com/graysonRATech/frc-design-assistant
+features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: TORCH
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read # questions that @mention the bot in channels it's in
+      - chat:write # streamed answers and short private replies
+      - im:history # direct messages sent to the bot
+      - users:read # check the asker is a full member, not a guest
+      - users:read.email # match the asker's email against the access list
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

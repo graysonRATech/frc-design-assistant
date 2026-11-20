@@ -312,3 +312,32 @@ def test_runtime_endpoint_grants_invoke_model_on_the_inference_profile(tmp_path)
     assert "inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0" in policies
     assert "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0" in policies
     assert "bedrock-mantle:CreateInference" not in policies
+
+
+def test_no_slack_bot_without_team_id(template):
+    assert not template.find_resources("AWS::Lambda::Function", {"Properties": {"Handler": "chat_api.slack.events_handler"}})
+
+
+def test_slack_bot_receiver_is_signed_public_url_and_worker_shares_chat_role(tmp_path):
+    t = _stack_from(tmp_path, "slack:\n  team_id: T0TORCH01\n")
+    functions = t.find_resources("AWS::Lambda::Function")
+    by_handler = {f["Properties"]["Handler"]: f["Properties"] for f in functions.values()}
+    receiver, worker = by_handler["chat_api.slack.events_handler"], by_handler["chat_api.slack.worker_handler"]
+    chat = by_handler["chat_api.handler.lambda_handler"]
+    assert worker["Role"] == chat["Role"] and receiver["Role"] != chat["Role"]
+    assert receiver["Environment"]["Variables"]["SLACK_TEAM_ID"] == "T0TORCH01"
+    assert "KNOWLEDGE_BASE_ID" not in receiver["Environment"]["Variables"]
+    t.has_resource_properties("AWS::Lambda::Url", {"AuthType": "NONE", "InvokeMode": Match.absent()})
+    t.has_resource_properties("AWS::Lambda::EventInvokeConfig", {"MaximumRetryAttempts": 0})
+    # The receiver can start the worker and read the Slack secret, but can't call Bedrock.
+    policies = json.dumps(
+        [p for p in t.find_resources("AWS::IAM::Policy").values() if receiver["Role"]["Fn::GetAtt"][0] in json.dumps(p["Properties"]["Roles"])]
+    )
+    assert "lambda:InvokeFunction" in policies and "secretsmanager:GetSecretValue" in policies and "bedrock" not in policies
+
+
+def test_slack_team_id_is_validated(tmp_path):
+    local = tmp_path / "config.local.yaml"
+    local.write_text("slack:\n  team_id: torch\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="slack.team_id"):
+        load(local)

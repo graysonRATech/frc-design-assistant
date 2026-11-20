@@ -37,6 +37,8 @@ class DeployConfig:
     api_rate_per_second: float
     api_burst: int
     github_repo: str
+    slack_team_id: str = ""
+    slack_secret_name: str = "frcrag/slack"
 
     @property
     def extra_web_origins_slash(self) -> list[str]:
@@ -77,7 +79,15 @@ def load(path: Path | None = None) -> DeployConfig:
         api_rate_per_second=float(web["api_rate_per_second"]),
         api_burst=int(web["api_burst"]),
         github_repo=_github_repo(data["github"]["repo"]),
+        **_slack(data.get("slack") or {}),
     )
+
+
+def _slack(section: dict) -> dict:
+    team_id = str(section.get("team_id") or "").strip()
+    if team_id and not re.fullmatch(r"T[A-Z0-9]{6,}", team_id):
+        raise ValueError(f"slack.team_id must look like T0123456789, got {team_id!r}")
+    return {"slack_team_id": team_id, "slack_secret_name": str(section.get("secret_name") or "frcrag/slack")}
 
 
 def _positive(name: str, value) -> int:

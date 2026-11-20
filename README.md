@@ -71,6 +71,7 @@ Source: https://www.frcdesign.org/design-handbook/structure/fasteners/#imperial
 | Cognito user pool | Google sign-in only. Allowlist triggers (`backend/auth_triggers`) reject anyone not added with `kb users add`, on sign-up and on every token refresh |
 | HTTP API | `POST /chat`, `POST /feedback` and the saved-chat routes (`/chats`), all behind a Cognito JWT authorizer; throttled to 5 req/s |
 | CloudFront + S3 | The chat page (`web/`: React + [Astryx](https://github.com/meta/astryx), built with Vite) under a strict Content-Security-Policy. Saved chats, streamed answers with Stop, copy, retry and edit, and a per-user theme (Auto, Forge, Collegiate, Blueprint) saved with `GET`/`PUT /settings` |
+| Slack bot (`chat_api/slack.py`, optional) | A receiver behind a public function URL checks Slack's request signature and hands each question to a worker, which streams the answer into a Slack thread. Same allowlist, daily limits and audit log as the web page; the worker shares the chat role. Deployed only when `slack.team_id` is set |
 
 ### One-time setup
 
@@ -168,6 +169,22 @@ The site works at its CloudFront address out of the box. To serve it from your o
 4. Point the name at the `WebUrl` CloudFront host with a CNAME. On Cloudflare, set the record to **DNS only** (grey cloud): CloudFront already serves HTTPS, and proxying through Cloudflare breaks it.
 
 The CloudFront address keeps working for sign-in, so old links don't break. Google needs no changes.
+
+### Slack bot
+
+Students mention **@TORCH** in a channel (after inviting it there), or DM it, and the answer streams into a thread with its sources. Follow-ups in the same thread keep the conversation going; stopping the answer in Slack stops it generating. The bot only sees messages that mention it or are sent to it directly.
+
+Who gets answers: full members of your workspace whose Slack profile email is on the access list (an email entry, or a domain entry like `@collegiate-va.org`). Guests, people from other workspaces in shared channels, and anyone not on the list get a private "not on the access list" reply. Slack questions count toward the same daily limit as the website.
+
+Setup (you need to be a workspace admin, or have one approve the app):
+
+1. At [api.slack.com/apps](https://api.slack.com/apps), choose **Create New App > From a manifest**, pick the workspace, and paste [`slack/manifest.yaml`](slack/manifest.yaml).
+2. **Install to Workspace**. Note the **Bot User OAuth Token** (OAuth & Permissions, starts `xoxb-`) and the **Signing Secret** (Basic Information). Find the workspace ID (starts with `T`) under your workspace's **About** page or in the URL of Slack in a browser.
+3. In the AWS console, create a Secrets Manager secret named `frcrag/slack` (type "Other", key/value) with keys `bot_token` and `signing_secret`. Don't paste them into chat, files or the terminal.
+4. Set `slack.team_id` in `config.local.yaml` (and the `SLACK_TEAM_ID` repository variable for GitHub deploys), then deploy. The stack prints `SlackEventsUrl`.
+5. Back in the Slack app: **Event Subscriptions > Enable Events**, paste `SlackEventsUrl` as the Request URL (it should show **Verified**), add the bot events `app_mention` and `message.im`, and save. Reinstall the app if Slack asks.
+
+Each thread is stored under `SLACK#<channel>` and deleted `chat_retention_days` after its last message.
 
 ## Continuous deployment
 

@@ -60,8 +60,14 @@ class Prepared:
     history: list[dict]
 
 
-def prepare(deps: Dependencies, request_id: str, user_id: str, groups: list[str], body: dict) -> Prepared | Rejected:
-    """Everything that can fail with a plain JSON error, before any answer text is sent."""
+def prepare(
+    deps: Dependencies, request_id: str, user_id: str, groups: list[str], body: dict, chats=None
+) -> Prepared | Rejected:
+    """Everything that can fail with a plain JSON error, before any answer text is sent.
+
+    `chats` stores the conversation: the student's saved chats by default, or a Slack thread
+    (slack.ThreadStore), which has the same get/save methods.
+    """
     question = body.get("question")
     if not isinstance(question, str) or not question.strip():
         return Rejected(400, "'question' is required")
@@ -69,7 +75,7 @@ def prepare(deps: Dependencies, request_id: str, user_id: str, groups: list[str]
         return Rejected(400, f"'question' must be at most {MAX_QUESTION_CHARS} characters")
     question = question.strip()
     now = datetime.now(UTC)
-    chats = Conversations(deps.table, deps.settings.chat_retention_days)
+    chats = chats or Conversations(deps.table, deps.settings.chat_retention_days)
 
     if body.get("chat_id"):
         try:

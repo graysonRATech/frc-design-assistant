@@ -33,6 +33,8 @@ def build(env: dict[str, str]) -> dict:
             "domain_name": env.get("DOMAIN_NAME", "").strip(),
             "certificate_arn": env.get("CERTIFICATE_ARN", "").strip(),
         },
+        # Optional Slack bot (README "Slack bot"); the workspace ID isn't secret, the tokens are in AWS.
+        "slack": {"team_id": env.get("SLACK_TEAM_ID", "").strip()},
         # The repo running the workflow, so the OIDC trust always matches where deploys come from.
         "github": {"repo": _oidc_repo(env)},
     }

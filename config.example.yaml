@@ -56,3 +56,10 @@ github:
   # owner/name, or owner@<owner id>/name@<repo id> if the repo's OIDC tokens use immutable
   # subjects (see `gh api repos/OWNER/NAME/actions/oidc/customization/sub`).
   repo: ""
+
+# Slack bot (see README "Slack bot"). Set team_id to the workspace ID (starts with T) to deploy
+# it; leave empty to skip. The bot token and signing secret go in Secrets Manager as
+# {"bot_token": "xoxb-...", "signing_secret": "..."} under secret_name.
+slack:
+  team_id: ""
+  secret_name: frcrag/slack

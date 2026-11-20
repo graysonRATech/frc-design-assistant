@@ -16,6 +16,7 @@ from constructs import Construct
 
 from .config import DeployConfig
 from .github_access import GitHubAccess
+from .slack_bot import SlackBot
 from .student_access import StudentAccess
 
 EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0"
@@ -225,6 +226,16 @@ class FrcRagStack(Stack):
             chat_role=chat.role,
             chat_environment=chat_environment,
         )
+        if config.slack_team_id:
+            SlackBot(
+                self,
+                "SlackBot",
+                config=config,
+                chat_code=chat_code,
+                table=table,
+                chat_role=chat.role,
+                chat_environment=chat_environment,
+            )
         if config.github_repo:
             GitHubAccess(
                 self, "GitHubAccess", repo=config.github_repo, content=content, knowledge_base_arn=knowledge_base.attr_knowledge_base_arn

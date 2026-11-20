@@ -58,3 +58,11 @@ def test_custom_domain_comes_from_environment(tmp_path):
 def test_github_repo_uses_immutable_ids_when_available():
     data = build({**BASE, "GITHUB_REPOSITORY_OWNER_ID": "42", "GITHUB_REPOSITORY_ID": "7"})
     assert data["github"]["repo"] == "team@42/rag@7"
+
+
+def test_slack_team_id_comes_from_environment():
+    from scripts.ci_config import build
+
+    env = {"AWS_ACCOUNT_ID": "1", "ALERT_EMAIL": "a@b.c", "GITHUB_REPOSITORY": "o/r", "SLACK_TEAM_ID": " T0TORCH01 "}
+    assert build(env)["slack"] == {"team_id": "T0TORCH01"}
+    assert build({**env, "SLACK_TEAM_ID": ""})["slack"] == {"team_id": ""}

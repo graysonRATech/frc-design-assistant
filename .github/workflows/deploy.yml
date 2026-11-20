@@ -2,7 +2,7 @@
 #
 # Setup (README "Continuous deployment"): repository variable GOOGLE_CLIENT_ID and
 # optionally MODEL_CONFIG (JSON overrides for the model block, see scripts/ci_config.py) and
-# DOMAIN_NAME with secret CERTIFICATE_ARN (custom domain),
+# DOMAIN_NAME with secret CERTIFICATE_ARN (custom domain), SLACK_TEAM_ID (Slack bot),
 # secrets AWS_ACCOUNT_ID and ALERT_EMAIL (secrets are masked in the public logs), and an environment named `production` (add yourself as a required reviewer
 # if others can push to main). The FrcRag-github-deploy role must already exist: deploy once
 # from your machine with github.repo set in config.local.yaml.
@@ -49,6 +49,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           MODEL_CONFIG: ${{ vars.MODEL_CONFIG }}
           DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
+          SLACK_TEAM_ID: ${{ vars.SLACK_TEAM_ID }}
           CERTIFICATE_ARN: ${{ secrets.CERTIFICATE_ARN }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: uv run python scripts/ci_config.py
