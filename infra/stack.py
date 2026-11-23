@@ -194,10 +194,11 @@ class FrcRagStack(Stack):
         else:
             # InvokeModel through a cross-region inference profile (e.g. us.anthropic...): the
             # profile in this region, plus the model in whichever region the profile routes to.
+            # The streaming functions (web page, Slack) need the streaming variant too.
             model = config.model_id.split(".", 1)[1] if config.model_id.startswith(("us.", "global.")) else config.model_id
             chat.add_to_role_policy(
                 iam.PolicyStatement(
-                    actions=["bedrock:InvokeModel"],
+                    actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
                     resources=[
                         f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/{config.model_id}",
                         f"arn:aws:bedrock:*::foundation-model/{model}",

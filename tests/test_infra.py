@@ -311,6 +311,7 @@ def test_runtime_endpoint_grants_invoke_model_on_the_inference_profile(tmp_path)
     policies = json.dumps(Template.from_stack(stack).find_resources("AWS::IAM::Policy"))
     assert "inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0" in policies
     assert "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0" in policies
+    assert "bedrock:InvokeModelWithResponseStream" in policies  # the streaming functions need it
     assert "bedrock-mantle:CreateInference" not in policies
 
 
