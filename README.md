@@ -68,6 +68,7 @@ Source: https://www.frcdesign.org/design-handbook/structure/fasteners/#imperial
 | Chat stream function (`chat_api/server.py`) | Same pipeline, streamed to the page through a Lambda function URL (API Gateway can't stream). Python Lambdas can't stream on their own, so it runs behind the AWS [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) layer and checks the Cognito ID token itself. Shares the chat Lambda's role, so the Budgets kill switch covers it |
 | DynamoDB table | Audit log (question, answer, sources, tokens and cost per request; 365-day TTL), spend counters, and saved chats (deleted `chat_retention_days` after their last message, or by the student) |
 | AWS Budgets | Email at 50/80/100% of the monthly budget and on forecast; at 120% an IAM deny on all Bedrock calls |
+| Monitoring | An alarm that emails `alert_email` when any answering function (chat, web stream, Slack) logs an error, and again when it clears; a daily 12:00 UTC test question through the streaming pipeline (about half a cent). Confirm the "AWS Notification - Subscription Confirmation" email once after the first deploy |
 | Cognito user pool | Google sign-in only. Allowlist triggers (`backend/auth_triggers`) reject anyone not added with `kb users add`, on sign-up and on every token refresh |
 | HTTP API | `POST /chat`, `POST /feedback` and the saved-chat routes (`/chats`), all behind a Cognito JWT authorizer; throttled to 5 req/s |
 | CloudFront + S3 | The chat page (`web/`: React + [Astryx](https://github.com/meta/astryx), built with Vite) under a strict Content-Security-Policy. Saved chats, streamed answers with Stop, copy, retry and edit, and a per-user theme (Auto, Forge, Collegiate, Blueprint) saved with `GET`/`PUT /settings` |
@@ -196,6 +197,8 @@ Four workflows in [`.github/workflows`](.github/workflows), with actions pinned 
 | Preview sources | PRs touching sources or the ingester | real `kb ingest`, counts in the job summary | none |
 | Deploy | push to main touching infra/backend/web; manual | tests, then `cdk deploy` | `FrcRag-github-deploy` |
 | Refresh content | Mondays, merges touching sources; manual | `kb ingest`, `kb sync`, `kb eval` | `FrcRag-github-content` |
+
+After each deploy, the Deploy workflow runs [`scripts/smoke_test.py`](scripts/smoke_test.py): the chat page loads, the streaming URL refuses unsigned requests, and one real question is answered with cited sources through the same role and Bedrock calls students use. A failure fails the run. You can run it yourself with AWS credentials: `uv run python scripts/smoke_test.py`.
 
 AWS access uses GitHub's OIDC tokens, so no AWS keys are stored in GitHub. The deploy role trusts only this repository's `production` environment; the content role trusts only its `main` branch and can only write the content bucket and re-index the Knowledge Base. Pull requests, including from forks, get neither.
 

@@ -61,3 +61,5 @@ jobs:
         with:
           node-version: 24
       - run: npx --yes aws-cdk@2.1148.1 deploy --require-approval never
+      # Ask one real question through the deployed stack; fails the run if answers are broken.
+      - run: uv run python scripts/smoke_test.py

@@ -35,6 +35,8 @@ class SlackBot(Construct):
         secret = secretsmanager.Secret.from_secret_name_v2(self, "Secret", config.slack_secret_name)
         slack_environment = {"SLACK_SECRET_NAME": config.slack_secret_name, "SLACK_TEAM_ID": config.slack_team_id}
 
+        worker_logs = logs.LogGroup(self, "WorkerLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY)
+        events_logs = logs.LogGroup(self, "EventsLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY)
         worker = lambda_.Function(
             self,
             "Worker",
@@ -47,7 +49,7 @@ class SlackBot(Construct):
             timeout=Duration.seconds(180),
             reserved_concurrent_executions=config.lambda_reserved_concurrency or None,
             retry_attempts=0,  # a retry would post the answer twice
-            log_group=logs.LogGroup(self, "WorkerLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY),
+            log_group=worker_logs,
             environment={**chat_environment, **slack_environment},
         )
         secret.grant_read(chat_role)
@@ -61,7 +63,7 @@ class SlackBot(Construct):
             code=lambda_.Code.from_asset(str(chat_code)),
             memory_size=256,
             timeout=Duration.seconds(10),
-            log_group=logs.LogGroup(self, "EventsLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY),
+            log_group=events_logs,
             environment={**slack_environment, "TABLE_NAME": table.table_name, "WORKER_FUNCTION": worker.function_name},
         )
         secret.grant_read(receiver)
@@ -70,4 +72,5 @@ class SlackBot(Construct):
         # Public, like Slack needs; every request is checked against Slack's signing secret.
         url = receiver.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
 
+        self.log_groups = {"SlackWorker": worker_logs, "SlackEvents": events_logs}
         CfnOutput(Stack.of(self), "SlackEventsUrl", value=url.url)

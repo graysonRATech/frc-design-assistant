@@ -4,12 +4,16 @@ Invoked two ways, both returning an API Gateway-style response:
 - HTTP API with a JWT authorizer: the user comes from the verified token claims. Besides
   POST /chat, it serves the saved-chat routes (list, open, rename, delete, stop).
 - Direct `lambda:InvokeFunction` (the `kb ask` CLI): the caller already holds IAM rights to the
-  function, so the `user` field in the payload is trusted.
+  function, so the `user` field in the payload is trusted. With `"stream": true` the answer goes
+  through the streaming pipeline instead (streaming.py, as the web page and Slack use it): the
+  post-deploy smoke test and the daily check use this, so they exercise the same Bedrock calls
+  and permissions students depend on.
 
 The web page streams answers from a separate function (server.py) that shares the helpers here.
 """
 
 import json
+import logging
 import os
 import time
 import uuid
@@ -21,6 +25,9 @@ from functools import cache
 from .conversations import ChatNotFound, Conversations
 from .prompt import SYSTEM_PROMPT, build_user_message, cited_sources, sources_from_retrieval
 from .usage import LimitExceeded, Limits, Pricing, UsageLedger
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 MAX_QUESTION_CHARS = 2000
 MAX_HISTORY_MESSAGES = 6
@@ -109,7 +116,42 @@ def lambda_handler(event, context, deps: Dependencies | None = None):
         payload = _payload(event)
     except ValueError as error:
         return _response(400, {"error": str(error)})
+    if event.get("stream") is True and "requestContext" not in event:
+        return _streamed_check(deps, request_id, user_id, groups, payload)
     return _answer(deps, request_id, user_id, groups, payload)
+
+
+def _streamed_check(deps: Dependencies, request_id: str, user_id: str, groups: list[str], payload: dict):
+    """One question through the streaming pipeline, collected into a single response.
+
+    Failures are logged at ERROR, which the answer-errors alarm counts. The chat it creates is
+    deleted afterwards, so repeated checks don't pile up saved chats.
+    """
+    from .streaming import Rejected, prepare, run
+
+    prepared = prepare(deps, request_id, user_id, groups, {"question": payload["question"]})
+    if isinstance(prepared, Rejected):
+        return _response(prepared.status, {"error": prepared.error, **prepared.extra})
+    events = []
+    try:
+        run(prepared, events.append, lambda: False)
+    finally:
+        prepared.chats.delete(user_id, prepared.chat["id"])
+    answer = ""
+    for event in events:
+        if event["type"] == "delta":
+            answer += event["text"]
+        elif event["type"] == "replace":
+            answer = event["text"]
+    last = events[-1] if events else {"type": "error", "error": "no events"}
+    if last["type"] == "error":
+        return _response(502, {"error": last["error"]})
+    if not prepared.sources:
+        log.error("Check question retrieved no sources; is the Knowledge Base empty?")
+        return _response(502, {"error": "No sources retrieved", "answer": answer})
+    return _response(
+        200, {"answer": answer.strip(), "sources": last["sources"], "request_id": request_id, "usage": last["usage"]}
+    )
 
 
 CHAT_ROUTES = ("GET /chats", "GET /chats/{id}", "PATCH /chats/{id}", "DELETE /chats/{id}", "POST /chats/stop")

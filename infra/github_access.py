@@ -2,7 +2,8 @@
 
 Two roles, each trusted only for one repository and one context:
 - deploy: workflows running in the repo's `production` environment may assume the CDK bootstrap
-  roles (which do the actual CloudFormation work). Gate it with required reviewers on the
+  roles (which do the actual CloudFormation work), and afterwards read the stack outputs and ask
+  the chat function one question (scripts/smoke_test.py). Gate it with required reviewers on the
   environment if more than one person can push to main.
 - content: workflows on the main branch may upload chunks and re-index the Knowledge Base, and
   nothing else. Pull requests (including from forks) never get either role.
@@ -10,6 +11,7 @@ Two roles, each trusted only for one repository and one context:
 
 from aws_cdk import CfnOutput, Stack
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
@@ -26,6 +28,7 @@ class GitHubAccess(Construct):
         repo: str,
         content: s3.IBucket,
         knowledge_base_arn: str,
+        chat: lambda_.IFunction,
     ):
         super().__init__(scope, construct_id)
         stack = Stack.of(self)
@@ -51,6 +54,10 @@ class GitHubAccess(Construct):
                 resources=[f"arn:aws:iam::{stack.account}:role/cdk-hnb659fds-*-{stack.account}-{stack.region}"],
             )
         )
+
+        stack_arn = stack.format_arn(service="cloudformation", resource="stack", resource_name=f"{stack.stack_name}/*")
+        deploy.add_to_policy(iam.PolicyStatement(actions=["cloudformation:DescribeStacks"], resources=[stack_arn]))
+        chat.grant_invoke(deploy)
 
         sync = iam.Role(
             self,

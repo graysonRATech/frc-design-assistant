@@ -16,6 +16,7 @@ from constructs import Construct
 
 from .config import DeployConfig
 from .github_access import GitHubAccess
+from .monitoring import Monitoring
 from .slack_bot import SlackBot
 from .student_access import StudentAccess
 
@@ -171,6 +172,7 @@ class FrcRagStack(Stack):
             "AUDIT_RETENTION_DAYS": str(config.audit_retention_days),
             "CHAT_RETENTION_DAYS": str(config.chat_retention_days),
         }
+        chat_logs = logs.LogGroup(self, "ChatLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY)
         chat = lambda_.Function(
             self,
             "ChatFunction",
@@ -181,9 +183,7 @@ class FrcRagStack(Stack):
             memory_size=512,
             timeout=Duration.seconds(60),
             reserved_concurrent_executions=config.lambda_reserved_concurrency or None,
-            log_group=logs.LogGroup(
-                self, "ChatLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY
-            ),
+            log_group=chat_logs,
             environment=chat_environment,
         )
         chat.add_to_role_policy(iam.PolicyStatement(actions=["bedrock:Retrieve"], resources=[knowledge_base.attr_knowledge_base_arn]))
@@ -213,7 +213,7 @@ class FrcRagStack(Stack):
         )
 
         self._budget_guardrails(config, roles=[chat.role, kb_role])
-        StudentAccess(
+        student_access = StudentAccess(
             self,
             "StudentAccess",
             config=config,
@@ -227,8 +227,9 @@ class FrcRagStack(Stack):
             chat_role=chat.role,
             chat_environment=chat_environment,
         )
+        log_groups = {"Chat": chat_logs, "Stream": student_access.stream_logs}
         if config.slack_team_id:
-            SlackBot(
+            slack = SlackBot(
                 self,
                 "SlackBot",
                 config=config,
@@ -237,9 +238,16 @@ class FrcRagStack(Stack):
                 chat_role=chat.role,
                 chat_environment=chat_environment,
             )
+            log_groups.update(slack.log_groups)
+        Monitoring(self, "Monitoring", alert_email=config.alert_email, chat=chat, log_groups=log_groups)
         if config.github_repo:
             GitHubAccess(
-                self, "GitHubAccess", repo=config.github_repo, content=content, knowledge_base_arn=knowledge_base.attr_knowledge_base_arn
+                self,
+                "GitHubAccess",
+                repo=config.github_repo,
+                content=content,
+                knowledge_base_arn=knowledge_base.attr_knowledge_base_arn,
+                chat=chat,
             )
 
         CfnOutput(self, "ContentBucketName", value=content.bucket_name)

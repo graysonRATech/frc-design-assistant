@@ -342,3 +342,29 @@ def test_slack_team_id_is_validated(tmp_path):
     local.write_text("slack:\n  team_id: torch\n", encoding="utf-8")
     with pytest.raises(ValueError, match="slack.team_id"):
         load(local)
+
+
+def test_errors_alarm_emails_and_daily_check_runs(template):
+    filters = template.find_resources("AWS::Logs::MetricFilter")
+    assert len(filters) == 2  # chat + stream (Slack adds two more when enabled)
+    template.has_resource_properties(
+        "AWS::SNS::Subscription", {"Protocol": "email", "Endpoint": "mentor@example.org"}
+    )
+    template.has_resource_properties(
+        "AWS::CloudWatch::Alarm", {"MetricName": "AnswerErrors", "Threshold": 1, "TreatMissingData": "notBreaching"}
+    )
+    rule = next(iter(template.find_resources("AWS::Events::Rule").values()))["Properties"]
+    assert rule["ScheduleExpression"] == "cron(0 12 * * ? *)"
+    assert json.loads(rule["Targets"][0]["Input"])["stream"] is True
+
+
+def test_slack_logs_are_watched_too(tmp_path):
+    t = _stack_from(tmp_path, "slack:\n  team_id: T0TORCH01\n")
+    assert len(t.find_resources("AWS::Logs::MetricFilter")) == 4
+
+
+def test_deploy_role_can_run_the_smoke_test(tmp_path):
+    t = _stack_with_repo(tmp_path, "myteam/frc")
+    deploy = [p for p in t.find_resources("AWS::IAM::Policy").values() if "DeployRole" in json.dumps(p["Properties"]["Roles"])]
+    text = json.dumps(deploy)
+    assert "lambda:InvokeFunction" in text and "cloudformation:DescribeStacks" in text and "ChatFunction" in text

@@ -171,6 +171,7 @@ class StudentAccess(Construct):
 
         # Answers stream from a function URL: API Gateway can't stream responses. The URL is
         # public, so server.py verifies the Cognito ID token on every request itself.
+        stream_logs = logs.LogGroup(self, "StreamLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY)
         stream = lambda_.Function(
             self,
             "ChatStream",
@@ -183,7 +184,7 @@ class StudentAccess(Construct):
             memory_size=512,
             timeout=Duration.seconds(120),
             reserved_concurrent_executions=config.lambda_reserved_concurrency or None,
-            log_group=logs.LogGroup(self, "StreamLogs", retention=logs.RetentionDays.THREE_MONTHS, removal_policy=RemovalPolicy.DESTROY),
+            log_group=stream_logs,
             environment={
                 **chat_environment,
                 "AWS_LAMBDA_EXEC_WRAPPER": "/opt/bootstrap",
@@ -260,6 +261,7 @@ class StudentAccess(Construct):
         )
 
         self.user_pool = pool
+        self.stream_logs = stream_logs
         CfnOutput(stack, "WebUrl", value=site_url)
         CfnOutput(stack, "ApiUrl", value=api.api_endpoint)
         CfnOutput(stack, "StreamUrl", value=stream_url.url)
