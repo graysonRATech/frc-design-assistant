@@ -69,6 +69,8 @@ def chunk_document(
     max_chars: int = MAX_CHARS,
     min_body_chars: int = MIN_BODY_CHARS,
 ) -> list[Chunk]:
+    if doc.min_body_chars is not None:
+        min_body_chars = doc.min_body_chars
     pieces: list[Section] = []
     for section in _attach_bare_headings(split_sections(doc.markdown)):
         if len(section.text) <= max_chars:

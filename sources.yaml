@@ -2,7 +2,7 @@
 #
 # Common fields (every source):
 #   id              unique slug (lowercase letters, digits, dashes); used in S3 prefixes and citations
-#   type            github_repo | sitemap
+#   type            github_repo | sitemap | game_manual
 #   name            human-readable name shown in citations
 #   attribution     credit line shown to students alongside answers
 #   license_status  attributed | permitted | link-only
@@ -12,6 +12,8 @@
 #                      base_url (site URL that path maps to), include/exclude (globs; * crosses folders)
 # sitemap options:     url (sitemap.xml or sitemap index), include/exclude (globs on URL path),
 #                      delay_seconds (politeness delay, default 1.0), max_pages (default 500)
+# game_manual options: url (FIRST's HTML manual, with {year}), year (current season),
+#                      next_season (true: use next year's manual as soon as FIRST publishes it)
 
 sources:
   - id: frcdesign
@@ -28,3 +30,17 @@ sources:
       - "test-content-figure/*"  # component test fixtures, not content
       - "contribution/*"         # how to contribute to the website itself
       - "feature-guide/*"        # how to use the website's UI
+
+  # One document per rule, cited as e.g. "2026 Game Manual R103" with a link to the rule. FIRST
+  # republishes the HTML at the same address after each Team Update; the daily refresh picks it
+  # up. On kickoff day the next season's manual replaces this one automatically (next_season);
+  # afterwards, bump `year` so the following kickoff is found too. See README "Game manual".
+  - id: game-manual
+    type: game_manual
+    name: FRC Game Manual
+    attribution: "FIRST Robotics Competition Game Manual, (c) FIRST (https://www.firstinspires.org/resources/library/frc/season-materials)"
+    license_status: attributed
+    refresh: daily
+    url: https://firstfrc.blob.core.windows.net/frc{year}/Manual/HTML/{year}GameManual.htm
+    year: 2026
+    next_season: true

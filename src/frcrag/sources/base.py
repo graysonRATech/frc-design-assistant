@@ -11,6 +11,7 @@ class Document:
     section: str  # top-level site section slug, e.g. "design-handbook"
     markdown: str  # normalized body, without the page title
     description: str = ""
+    min_body_chars: int | None = None  # override chunking's minimum, for sources with short documents
 
 
 @dataclass(frozen=True)

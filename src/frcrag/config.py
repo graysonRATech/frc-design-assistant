@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 SOURCE_TYPES = {
+    "game_manual": ("url", "year"),
     "github_repo": ("repo", "base_url"),
     "sitemap": ("url",),
 }

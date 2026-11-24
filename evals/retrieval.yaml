@@ -48,3 +48,8 @@ cases:
     expect: [mechanism-examples/drivebase/swerve/]
   - question: Onshape is laggy on my laptop. How can I speed it up?
     expect: [learning-course/course-setup/new-to-onshape/performance-tuning/]
+  # Game manual. Rule numbers can move at kickoff; update these when the new manual lands.
+  - question: What is the maximum robot weight, and does the battery count?
+    expect: [GameManual.htm#R103]
+  - question: How thick does bumper foam have to be, and what materials are allowed?
+    expect: [GameManual.htm#R402]

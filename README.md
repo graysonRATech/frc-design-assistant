@@ -11,7 +11,7 @@ Architecture, costs and decisions are in [docs/discovery.md](docs/discovery.md).
 | 1 | Ingestion: `sources.yaml` → normalized, chunked Markdown + metadata | ✅ |
 | 2 | AWS stack (CDK): S3, Bedrock Knowledge Base on S3 Vectors, chat Lambda, audit log, budget guardrails | ✅ deployed; content load awaits Bedrock quotas |
 | 3 | Student web UI, API Gateway, Google sign-in via Cognito, allowlist, feedback | ✅ deployed |
-| 4 | GitHub Actions: tests, source previews on PRs, deploys, weekly content refresh | ✅ built; needs a GitHub repo |
+| 4 | GitHub Actions: tests, source previews on PRs, deploys, daily content refresh | ✅ built; needs a GitHub repo |
 
 ## Knowledge sources
 
@@ -20,8 +20,17 @@ Sources live in [`sources.yaml`](sources.yaml). To add a website or repository, 
 | Source | Content | Credit |
 |---|---|---|
 | [FRCDesign.org](https://www.frcdesign.org/) | Learning course, design handbook, mechanism examples, best practices | FRCDesign.org contributors, ingested from [frcdesign/FRCDesign.org](https://github.com/frcdesign/FRCDesign.org) |
+| [FRC Game Manual](https://www.firstinspires.org/resources/library/frc/season-materials) | The current season's rules, one document per rule, plus field, scoring and tournament sections | *FIRST*, from the official HTML edition |
 
 Answers always cite and link to the original page. Content stays with its authors.
+
+### Game manual
+
+Each rule (R103, G204, ...) is its own document, titled like "2026 Game Manual R103: ROBOT weight limit" and linked straight to that rule in FIRST's HTML manual. Answers name the rule number, quote the deciding words, and say which season they're from. The rest of the manual (field, scoring, tournaments, glossary) is split by numbered section.
+
+- **Team Updates:** FIRST republishes the HTML manual at the same address with each revision. The content refresh runs daily, so the new wording is in answers by the next morning.
+- **Kickoff day:** with `next_season: true` the ingester looks for next season's manual first, so the daily refresh switches to the new game by itself the morning after kickoff. To switch the same day, run **Refresh content** from the Actions tab once FIRST has posted the manual. Afterwards, set `year` in `sources.yaml` to the new season, and update the rule numbers in the game-manual cases in `evals/retrieval.yaml`.
+- **Not yet included:** the official Q&A system ([#2](https://github.com/graysonRATech/frc-design-assistant/issues/2)). FIRST's Q&A answers clarify rules but aren't part of the manual.
 
 ## Running the ingester
 
@@ -196,7 +205,7 @@ Four workflows in [`.github/workflows`](.github/workflows), with actions pinned 
 | CI | every PR and push | tests, `sources.yaml` check, `cdk synth` | none |
 | Preview sources | PRs touching sources or the ingester | real `kb ingest`, counts in the job summary | none |
 | Deploy | push to main touching infra/backend/web; manual | tests, then `cdk deploy` | `FrcRag-github-deploy` |
-| Refresh content | Mondays, merges touching sources; manual | `kb ingest`, `kb sync`, `kb eval` | `FrcRag-github-content` |
+| Refresh content | daily, merges touching sources; manual | `kb ingest`, `kb sync`, `kb eval` | `FrcRag-github-content` |
 
 After each deploy, the Deploy workflow runs [`scripts/smoke_test.py`](scripts/smoke_test.py): the chat page loads, the streaming URL refuses unsigned requests, and one real question is answered with cited sources through the same role and Bedrock calls students use. A failure fails the run. You can run it yourself with AWS credentials: `uv run python scripts/smoke_test.py`.
 
