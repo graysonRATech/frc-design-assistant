@@ -53,3 +53,8 @@ cases:
     expect: [GameManual.htm#R103]
   - question: How thick does bumper foam have to be, and what materials are allowed?
     expect: [GameManual.htm#R402]
+  # Past games: comparing a new game with earlier ones.
+  - question: Which past FRC games had robots shoot balls into a central hub?
+    expect: [frc2022/Manual/2022FRCGameManual.pdf, frc2020/Manual/2020FRCGameSeasonManual.pdf]
+  - question: What game pieces did robots score on the reef in 2025?
+    expect: [frc2025/Manual/2025GameManual.pdf]

@@ -2,7 +2,7 @@
 #
 # Common fields (every source):
 #   id              unique slug (lowercase letters, digits, dashes); used in S3 prefixes and citations
-#   type            github_repo | sitemap | game_manual
+#   type            github_repo | sitemap | game_manual | past_games
 #   name            human-readable name shown in citations
 #   attribution     credit line shown to students alongside answers
 #   license_status  attributed | permitted | link-only
@@ -14,6 +14,7 @@
 #                      delay_seconds (politeness delay, default 1.0), max_pages (default 500)
 # game_manual options: url (FIRST's HTML manual, with {year}), year (current season),
 #                      next_season (true: use next year's manual as soon as FIRST publishes it)
+# past_games options:  games: list of {year, name, url (PDF manual), chapters (chapter numbers to keep)}
 
 sources:
   - id: frcdesign
@@ -44,3 +45,23 @@ sources:
     url: https://firstfrc.blob.core.windows.net/frc{year}/Manual/HTML/{year}GameManual.htm
     year: 2026
     next_season: true
+
+  # What earlier games asked robots to do, so kickoff-day questions can compare the new game
+  # with old ones. Overview, field and match chapters only: old rules are left out so they're
+  # never cited as current. 2021 replayed 2020's game at home; 2017 and earlier PDFs have no
+  # chapter bookmarks. After each kickoff, add the season that just ended (its chapters are
+  # Game Overview, ARENA and Game Details in recent manuals). See README "Game manual".
+  - id: past-games
+    type: past_games
+    name: Past FRC games
+    attribution: "FIRST Robotics Competition Game Manuals, (c) FIRST (https://www.firstinspires.org/resources/library/frc/archived-games)"
+    license_status: attributed
+    refresh: manual
+    games:
+      - {year: 2025, name: "REEFSCAPE", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2025/Manual/2025GameManual.pdf}
+      - {year: 2024, name: "CRESCENDO", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2024/Manual/2024GameManual.pdf}
+      - {year: 2023, name: "CHARGED UP", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2023/Manual/2023FRCGameManual.pdf}
+      - {year: 2022, name: "RAPID REACT", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2022/Manual/2022FRCGameManual.pdf}
+      - {year: 2020, name: "INFINITE RECHARGE", chapters: [2, 3, 4], url: https://firstfrc.blob.core.windows.net/frc2020/Manual/2020FRCGameSeasonManual.pdf}
+      - {year: 2019, name: "DESTINATION: DEEP SPACE", chapters: [2, 4, 5], url: https://firstfrc.blob.core.windows.net/frc2019/Manual/2019FRCGameSeasonManual.pdf}
+      - {year: 2018, name: "FIRST POWER UP", chapters: [2, 3, 4], url: https://firstfrc.blob.core.windows.net/frc2018/Manual/2018FRCGameSeasonManual.pdf}

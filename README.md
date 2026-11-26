@@ -21,6 +21,7 @@ Sources live in [`sources.yaml`](sources.yaml). To add a website or repository, 
 |---|---|---|
 | [FRCDesign.org](https://www.frcdesign.org/) | Learning course, design handbook, mechanism examples, best practices | FRCDesign.org contributors, ingested from [frcdesign/FRCDesign.org](https://github.com/frcdesign/FRCDesign.org) |
 | [FRC Game Manual](https://www.firstinspires.org/resources/library/frc/season-materials) | The current season's rules, one document per rule, plus field, scoring and tournament sections | *FIRST*, from the official HTML edition |
+| [Past FRC games](https://www.firstinspires.org/resources/library/frc/archived-games) | 2018–2025 games (2021 excepted): overview, field and match chapters, for comparing a new game with old ones | *FIRST*, from the archived PDF manuals |
 
 Answers always cite and link to the original page. Content stays with its authors.
 
@@ -30,6 +31,8 @@ Each rule (R103, G204, ...) is its own document, titled like "2026 Game Manual R
 
 - **Team Updates:** FIRST republishes the HTML manual at the same address with each revision. The content refresh runs daily, so the new wording is in answers by the next morning.
 - **Kickoff day:** with `next_season: true` the ingester looks for next season's manual first, so the daily refresh switches to the new game by itself the morning after kickoff. To switch the same day, run **Refresh content** from the Actions tab once FIRST has posted the manual. Afterwards, set `year` in `sources.yaml` to the new season, and update the rule numbers in the game-manual cases in `evals/retrieval.yaml`.
+- **Past games:** for kickoff day, the overview, field and match chapters of past manuals are loaded too, titled "Past game: 2022 RAPID REACT, 5.3 Hub", so students can ask what the new game shares with old ones. Their rules chapters are left out, so an old rule is never cited as current.
+- **After kickoff:** add the season that just ended to `past-games` in `sources.yaml` (its PDF and chapter numbers).
 - **Not yet included:** the official Q&A system ([#2](https://github.com/graysonRATech/frc-design-assistant/issues/2)). FIRST's Q&A answers clarify rules but aren't part of the manual.
 
 ## Running the ingester

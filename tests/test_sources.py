@@ -96,7 +96,7 @@ def test_load_sources_validates(tmp_path):
 
 
 def test_the_repo_sources_file_is_valid():
-    assert [s.id for s in load_sources(Path(__file__).parents[1] / "sources.yaml")] == ["frcdesign", "game-manual"]
+    assert [s.id for s in load_sources(Path(__file__).parents[1] / "sources.yaml")] == ["frcdesign", "game-manual", "past-games"]
 
 
 def test_html_to_markdown_strips_site_chrome():

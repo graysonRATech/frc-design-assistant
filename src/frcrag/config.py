@@ -8,6 +8,7 @@ import yaml
 
 SOURCE_TYPES = {
     "game_manual": ("url", "year"),
+    "past_games": ("games",),
     "github_repo": ("repo", "base_url"),
     "sitemap": ("url",),
 }
