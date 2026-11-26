@@ -54,7 +54,20 @@ cases:
   - question: How thick does bumper foam have to be, and what materials are allowed?
     expect: [GameManual.htm#R402]
   # Past games: comparing a new game with earlier ones.
+  # "archived-games" is the combined "Past FRC games at a glance" document.
   - question: Which past FRC games had robots shoot balls into a central hub?
-    expect: [frc2022/Manual/2022FRCGameManual.pdf, frc2020/Manual/2020FRCGameSeasonManual.pdf]
+    expect: [frc2022/Manual/2022FRCGameManual.pdf, archived-games]
+  # Questions another FRC assistant got wrong in public (Chief Delphi, January 2026): it said
+  # 2018 had no climb and called 2023's game RAPID REACT.
+  - question: What robots made the best buddy climbers in 2018?
+    expect: [frc2018/Manual/]
+  - question: Did the 2018 FRC game have an endgame climb?
+    expect: [frc2018/Manual/]
+  - question: What was the 2023 FRC game called, and what were its game pieces?
+    expect: [frc2023/Manual/, archived-games]
+  - question: Which FRC game used cones and cubes?
+    expect: [frc2023/Manual/, archived-games]
+  - question: Which past games had robots climb or hang at the end of the match?
+    expect: [archived-games]
   - question: What game pieces did robots score on the reef in 2025?
     expect: [frc2025/Manual/2025GameManual.pdf]

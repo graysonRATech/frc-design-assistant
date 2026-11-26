@@ -57,11 +57,77 @@ sources:
     attribution: "FIRST Robotics Competition Game Manuals, (c) FIRST (https://www.firstinspires.org/resources/library/frc/archived-games)"
     license_status: attributed
     refresh: manual
+    index_url: https://www.firstinspires.org/resources/library/frc/archived-games
+    # summary: a few sentences written from the manual's overview and game piece sections, so
+    # questions across seasons ("which games had a central hub?") find every game at once.
     games:
-      - {year: 2025, name: "REEFSCAPE", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2025/Manual/2025GameManual.pdf}
-      - {year: 2024, name: "CRESCENDO", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2024/Manual/2024GameManual.pdf}
-      - {year: 2023, name: "CHARGED UP", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2023/Manual/2023FRCGameManual.pdf}
-      - {year: 2022, name: "RAPID REACT", chapters: [4, 5, 6], url: https://firstfrc.blob.core.windows.net/frc2022/Manual/2022FRCGameManual.pdf}
-      - {year: 2020, name: "INFINITE RECHARGE", chapters: [2, 3, 4], url: https://firstfrc.blob.core.windows.net/frc2020/Manual/2020FRCGameSeasonManual.pdf}
-      - {year: 2019, name: "DESTINATION: DEEP SPACE", chapters: [2, 4, 5], url: https://firstfrc.blob.core.windows.net/frc2019/Manual/2019FRCGameSeasonManual.pdf}
-      - {year: 2018, name: "FIRST POWER UP", chapters: [2, 3, 4], url: https://firstfrc.blob.core.windows.net/frc2018/Manual/2018FRCGameSeasonManual.pdf}
+      - year: 2025
+        name: REEFSCAPE
+        chapters: [4, 5, 6]
+        url: https://firstfrc.blob.core.windows.net/frc2025/Manual/2025GameManual.pdf
+        summary: >-
+          Game pieces: CORAL, 11 7/8 in. lengths of 4 1/2 in. outside diameter foam-core PVC pipe,
+          and ALGAE, 16.25 in. rubber playground balls. Robots take CORAL from human players at the
+          coral station and place it on the REEF, from the trough (L1) up to the highest branches
+          (L4). Robots knock ALGAE off the REEF and score it in the PROCESSOR or shoot it into the
+          NET on the BARGE. Endgame: park in the BARGE ZONE or hang from a CAGE.
+      - year: 2024
+        name: CRESCENDO
+        chapters: [4, 5, 6]
+        url: https://firstfrc.blob.core.windows.net/frc2024/Manual/2024GameManual.pdf
+        summary: >-
+          Game piece: NOTES, orange foam rings 14 in. across, 10 in. hole, 2 in. thick. Robots pick
+          NOTES off the floor or from the human player at the SOURCE and shoot them into the
+          SPEAKER (a high goal) or place them in the AMP; AMP NOTES let the human player amplify the
+          SPEAKER for extra points. Endgame: climb ONSTAGE on chains hung from the STAGE, with a
+          bonus for two robots on one chain (HARMONY), and score a NOTE in the TRAP.
+      - year: 2023
+        name: CHARGED UP
+        chapters: [4, 5, 6]
+        url: https://firstfrc.blob.core.windows.net/frc2023/Manual/2023FRCGameManual.pdf
+        summary: >-
+          Game pieces: CONES, 13 in. yellow rubber traffic cones (1 lb 7 oz), and CUBES, 9 1/2 in.
+          inflatable purple fabric cubes. Robots collect them from the floor or human players at
+          the SUBSTATIONS and place them on the GRID. Endgame (and autonomous): drive onto the
+          CHARGE STATION, a tilting platform, and DOCK or ENGAGE (balance) it.
+      - year: 2022
+        name: RAPID REACT
+        chapters: [4, 5, 6]
+        url: https://firstfrc.blob.core.windows.net/frc2022/Manual/2022FRCGameManual.pdf
+        summary: >-
+          Game piece: CARGO, 9 1/2 in. oversized fuzzy tennis balls in red and blue. Robots collect
+          their alliance's CARGO from the floor or human players at the TERMINAL and shoot it into
+          the central HUB, which has an UPPER HUB (8 ft 8 in. high) and LOWER HUB. Endgame: climb
+          the HANGAR, 4 RUNGS at increasing heights (LOW, MID, HIGH, TRAVERSAL), moving from rung
+          to rung for more points.
+      - year: 2020
+        name: INFINITE RECHARGE
+        chapters: [2, 3, 4]
+        url: https://firstfrc.blob.core.windows.net/frc2020/Manual/2020FRCGameSeasonManual.pdf
+        summary: >-
+          Game piece: POWER CELLS, 7 in. yellow foam balls. Robots collect them from the floor and
+          human players and shoot them into the POWER PORT on the alliance wall, through its
+          BOTTOM, OUTER (hexagonal, high) or INNER port. Robots spin the CONTROL PANEL, a color
+          wheel, for Rotation and Position Control. The field has a TRENCH robots can drive under.
+          Endgame: hang from the GENERATOR SWITCH, a bar that tilts, and keep it level.
+          (2021 replayed this game as at-home challenges.)
+      - year: 2019
+        name: "DESTINATION: DEEP SPACE"
+        chapters: [2, 4, 5]
+        url: https://firstfrc.blob.core.windows.net/frc2019/Manual/2019FRCGameSeasonManual.pdf
+        summary: >-
+          Game pieces: CARGO, 13 in. orange rubber playground balls, and HATCH PANELS, 19 in.
+          polycarbonate discs with a 6 in. center hole and hook-and-loop tape around the edge.
+          Robots place HATCH PANELS and CARGO on the ROCKETS and CARGO SHIP. The first 15 s is the
+          SANDSTORM, where drivers can drive using cameras. Endgame: climb back onto the HAB
+          PLATFORM, a platform with three levels.
+      - year: 2018
+        name: FIRST POWER UP
+        chapters: [2, 3, 4]
+        url: https://firstfrc.blob.core.windows.net/frc2018/Manual/2018FRCGameSeasonManual.pdf
+        summary: >-
+          Game piece: POWER CUBES, yellow-covered milk crates about 13 in. by 13 in. by 11 in.
+          (3 1/4 lb). Robots place cubes on the SWITCH and SCALE plates to tip them and own them
+          for points over time, and deliver cubes to the VAULT for POWER UPS. Endgame: climb the
+          SCALE (30 points each); an alliance earns a ranking point for three climbs, so robots
+          that could lift a partner (buddy climbers) were valuable.

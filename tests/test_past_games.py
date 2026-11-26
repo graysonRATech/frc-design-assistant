@@ -70,3 +70,31 @@ def test_bullets_and_page_footers_are_cleaned():
 def test_chunks_render_as_past_games():
     chunk = chunk_document(documents()["2022/4-game-overview"])[0]
     assert chunk.render().startswith("# Past game: 2022 RAPID REACT, 4 Game Overview\nSection: 2022 Rapid React\n")
+
+
+def test_summaries_become_per_game_and_combined_documents():
+    from frcrag.sources.past_games import summary_documents
+
+    games = [
+        {"year": 2022, "name": "RAPID REACT", "url": URL, "summary": "Shoot CARGO\n  into the HUB."},
+        {"year": 2024, "name": "CRESCENDO", "url": "https://x/2024.pdf", "summary": "Shoot NOTES."},
+        {"year": 2019, "name": "DESTINATION: DEEP SPACE", "url": "https://x/2019.pdf"},  # no summary
+    ]
+    docs = {d.doc_id: d for d in summary_documents(games, "past-games", "https://first/archived-games")}
+    assert sorted(docs) == ["2022/at-a-glance", "2024/at-a-glance", "at-a-glance"]
+    assert docs["2022/at-a-glance"].title == "Past game: 2022 RAPID REACT at a glance"
+    assert docs["2022/at-a-glance"].markdown == "Shoot CARGO into the HUB.\n"
+    combined = docs["at-a-glance"]
+    assert combined.title == "Past FRC games at a glance, 2022-2024"
+    assert combined.url == "https://first/archived-games"
+    assert combined.markdown == "**2024 CRESCENDO**: Shoot NOTES.\n\n**2022 RAPID REACT**: Shoot CARGO into the HUB.\n"
+
+
+def test_every_configured_past_game_has_a_summary():
+    from pathlib import Path
+
+    from frcrag.config import load_sources
+
+    (past,) = [s for s in load_sources(Path(__file__).parents[1] / "sources.yaml") if s.id == "past-games"]
+    assert past.options["index_url"]
+    assert all(len(game.get("summary", "")) > 200 for game in past.options["games"])

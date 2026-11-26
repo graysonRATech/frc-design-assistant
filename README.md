@@ -31,8 +31,8 @@ Each rule (R103, G204, ...) is its own document, titled like "2026 Game Manual R
 
 - **Team Updates:** FIRST republishes the HTML manual at the same address with each revision. The content refresh runs daily, so the new wording is in answers by the next morning.
 - **Kickoff day:** with `next_season: true` the ingester looks for next season's manual first, so the daily refresh switches to the new game by itself the morning after kickoff. To switch the same day, run **Refresh content** from the Actions tab once FIRST has posted the manual. Afterwards, set `year` in `sources.yaml` to the new season, and update the rule numbers in the game-manual cases in `evals/retrieval.yaml`.
-- **Past games:** for kickoff day, the overview, field and match chapters of past manuals are loaded too, titled "Past game: 2022 RAPID REACT, 5.3 Hub", so students can ask what the new game shares with old ones. Their rules chapters are left out, so an old rule is never cited as current.
-- **After kickoff:** add the season that just ended to `past-games` in `sources.yaml` (its PDF and chapter numbers).
+- **Past games:** for kickoff day, the overview, field and match chapters of past manuals are loaded too, titled "Past game: 2022 RAPID REACT, 5.3 Hub", so students can ask what the new game shares with old ones. Their rules chapters are left out, so an old rule is never cited as current. Each game also has a short hand-written summary in `sources.yaml` (game pieces with sizes, goals, endgame), loaded as "at a glance" documents plus one list of every game, so questions across seasons ("which games had a central hub?") find all of them at once.
+- **After kickoff:** add the season that just ended to `past-games` in `sources.yaml`: its PDF, chapter numbers and a summary written from its overview and game piece sections.
 - **Not yet included:** the official Q&A system ([#2](https://github.com/graysonRATech/frc-design-assistant/issues/2)). FIRST's Q&A answers clarify rules but aren't part of the manual.
 
 ## Running the ingester

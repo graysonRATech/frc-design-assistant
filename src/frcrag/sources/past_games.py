@@ -32,13 +32,55 @@ _SPACES = re.compile(r"[ \t]{2,}")
 def fetch(source: SourceConfig, cache_dir: Path) -> FetchResult:
     documents: list[Document] = []
     digest = hashlib.sha256()
-    for game in source.options["games"]:
+    games = source.options["games"]
+    for game in games:
         raw = _download(game["url"], cache_dir / source.id)
         digest.update(raw)
         docs = game_documents(PdfReader(io.BytesIO(raw)), game, source.id)
         log.info("%s: %d %s, %d sections", source.id, game["year"], game["name"], len(docs))
         documents.extend(docs)
+    documents.extend(summary_documents(games, source.id, source.options.get("index_url", "")))
     return FetchResult(documents=documents, revision=f"{len(source.options['games'])} manuals sha256:{digest.hexdigest()[:16]}")
+
+
+def summary_documents(games: list[dict], source_id: str, index_url: str) -> list[Document]:
+    """One "at a glance" document per game, plus one listing every game.
+
+    Questions like "which games had a hub you shoot into?" span seasons; matching them against
+    one season's field chapter at a time ranks poorly. The combined list puts every season's game
+    pieces, goals and endgame in a single excerpt. Summaries are written by hand in sources.yaml
+    from each manual's overview and game piece sections.
+    """
+    games = [g for g in games if g.get("summary")]
+    documents = [
+        Document(
+            source_id=source_id,
+            doc_id=f"{g['year']}/at-a-glance",
+            url=str(g["url"]),
+            title=f"Past game: {g['year']} {g['name']} at a glance",
+            section=f"{g['year']}-{_slug(str(g['name']))}",
+            markdown=_summary(g) + "\n",
+            description=f"{g['year']} {g['name']}",
+        )
+        for g in games
+    ]
+    if games and index_url:
+        years = sorted(int(g["year"]) for g in games)
+        documents.append(
+            Document(
+                source_id=source_id,
+                doc_id="at-a-glance",
+                url=index_url,
+                title=f"Past FRC games at a glance, {years[0]}-{years[-1]}",
+                section="past-games",
+                markdown="\n\n".join(f"**{g['year']} {g['name']}**: {_summary(g)}" for g in sorted(games, key=lambda g: -int(g["year"]))) + "\n",
+            )
+        )
+    return documents
+
+
+def _summary(game: dict) -> str:
+    return " ".join(str(game["summary"]).split())
 
 
 def _download(url: str, cache: Path) -> bytes:
