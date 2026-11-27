@@ -23,6 +23,7 @@ from decimal import Decimal
 from functools import cache
 
 from .conversations import ChatNotFound, Conversations
+from . import review
 from .prompt import SYSTEM_PROMPT, build_user_message, cited_sources, sources_from_retrieval
 from .usage import LimitExceeded, Limits, Pricing, UsageLedger
 
@@ -93,6 +94,7 @@ def _default_dependencies(claude_timeout: float = 24.0) -> Dependencies:
 
 
 ALLOWED_GROUPS = {"student", "mentor", "admin"}
+REVIEWER_GROUPS = {"mentor", "admin"}
 FEEDBACK_RATINGS = ("up", "down")
 MAX_FEEDBACK_CHARS = 1000
 
@@ -109,6 +111,10 @@ def lambda_handler(event, context, deps: Dependencies | None = None):
         route = event.get("routeKey", "")
         if route == "POST /feedback":
             return _feedback(deps, user_id, _json_body(event))
+        if route in REVIEW_ROUTES:
+            if not REVIEWER_GROUPS.intersection(groups):
+                return _response(403, {"error": "Only mentors can review feedback."})
+            return _review(deps, route, user_id, event)
         if route in CHAT_ROUTES:
             return _chats(deps, route, user_id, event)
         if route in SETTINGS_ROUTES:
@@ -236,8 +242,10 @@ def _feedback(deps: Dependencies, user_id: str, body: dict):
     if not isinstance(comment, str):
         raise ValueError("'comment' must be a string")
     now = datetime.now(UTC)
+    rated = review.find_answer(deps.table, user_id, target[:64], now, deps.settings.chat_retention_days)
     deps.table.put_item(
         Item={
+            **review.answer_fields(rated),
             "pk": "FEEDBACK",
             "sk": f"{now.isoformat(timespec='milliseconds')}#{target[:64]}",
             "request_id": target[:64],
@@ -248,6 +256,31 @@ def _feedback(deps: Dependencies, user_id: str, body: dict):
         }
     )
     return _response(200, {"ok": True})
+
+
+REVIEW_ROUTES = ("GET /review", "POST /review")
+
+
+def _review(deps: Dependencies, route: str, user_id: str, event: dict):
+    """Mentor-only: list rated answers, and mark one reviewed."""
+    if route == "GET /review":
+        params = event.get("queryStringParameters") or {}
+        return _response(
+            200,
+            review.list_feedback(
+                deps.table,
+                rating=params.get("rating", "down"),
+                status=params.get("status", "open"),
+                window_days=deps.settings.chat_retention_days,
+                cursor=params.get("cursor") or None,
+            ),
+        )
+    body = _json_body(event)
+    try:
+        marked = review.mark(deps.table, body.get("id"), body.get("status"), body.get("note") or "", user_id, datetime.now(UTC))
+    except LookupError:
+        return _response(404, {"error": "That feedback doesn't exist any more."})
+    return _response(200, marked)
 
 
 def _answer(deps: Dependencies, request_id: str, user_id: str, groups: list[str], payload: dict):
@@ -284,6 +317,7 @@ def _answer(deps: Dependencies, request_id: str, user_id: str, groups: list[str]
         answer=answer,
         retrieved=[{"url": s.url, "score": s.score} for s in sources],
         cited=[s.url for s in cited],
+        sources=[{"number": s.number, "title": s.title, "url": s.url} for s in cited],
         input_tokens=usage.input_tokens,
         output_tokens=usage.output_tokens,
         micro_usd=cost,

@@ -112,6 +112,8 @@ def test_api_requires_cognito_jwt_on_every_route(template):
         "POST /chats/stop",
         "GET /settings",
         "PUT /settings",
+        "GET /review",
+        "POST /review",
     }
     assert all(r["Properties"]["AuthorizationType"] == "JWT" for r in routes.values())
     template.has_resource_properties("AWS::ApiGatewayV2::Authorizer", {"AuthorizerType": "JWT"})

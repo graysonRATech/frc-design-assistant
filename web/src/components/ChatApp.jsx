@@ -24,12 +24,13 @@ import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { TopNav } from "@astryxdesign/core/TopNav";
 import { VStack } from "@astryxdesign/core/VStack";
-import { ChevronRight, LogOut, MoreHorizontal, Plus } from "lucide-react";
+import { ChevronRight, LogOut, MessageSquareWarning, MoreHorizontal, Plus } from "lucide-react";
 import { SignedOut, api, streamAnswer } from "../lib/api.js";
 import { claims, signOut } from "../lib/auth.js";
 import { THEMES } from "../lib/theme.js";
 import { Logo, PrototypeBanner } from "./Brand.jsx";
 import { Answer, Question } from "./Messages.jsx";
+import { ReviewPage } from "./ReviewPage.jsx";
 
 const SUGGESTIONS = [
   { tag: "Gearing", text: "How do I calculate the center distance for two gears?" },
@@ -38,6 +39,7 @@ const SUGGESTIONS = [
   { tag: "Mechanisms", text: "How much compression should a shooter have?" },
 ];
 
+const REVIEW_HASH = "#review";
 const chatIdFromHash = () => location.hash.match(/^#c=([\w-]+)$/)?.[1] || null;
 
 function groupChats(chats) {
@@ -59,6 +61,11 @@ function displayName(email) {
 
 export function ChatApp({ config, session, themeId, themeChoice, onThemeChange, onSignedOut }) {
   const email = useMemo(() => claims(session.idToken).email || "", [session]);
+  const isMentor = useMemo(() => {
+    const groups = claims(session.idToken)["cognito:groups"] || [];
+    return groups.includes("mentor") || groups.includes("admin");
+  }, [session]);
+  const [reviewing, setReviewing] = useState(() => location.hash === REVIEW_HASH);
   const [chats, setChats] = useState([]);
   const [chatId, setChatId] = useState(chatIdFromHash);
   const [messages, setMessages] = useState([]);
@@ -86,7 +93,10 @@ export function ChatApp({ config, session, themeId, themeChoice, onThemeChange, 
 
   // Open the chat in the URL (and follow back/forward).
   useEffect(() => {
-    const onNav = () => !busy && setChatId(chatIdFromHash());
+    const onNav = () => {
+      setReviewing(location.hash === REVIEW_HASH);
+      if (!busy) setChatId(chatIdFromHash());
+    };
     window.addEventListener("hashchange", onNav);
     window.addEventListener("popstate", onNav);
     return () => {
@@ -291,6 +301,9 @@ export function ChatApp({ config, session, themeId, themeChoice, onThemeChange, 
         </DropdownMenuRadioGroup>
       </DropdownMenuGroup>
       <DropdownMenuDivider />
+      {isMentor ? (
+        <DropdownMenuItem label="Review feedback" icon={<MessageSquareWarning size={16} />} onClick={() => (location.hash = REVIEW_HASH.slice(1))} />
+      ) : null}
       <DropdownMenuItem label="Sign out" icon={<LogOut size={16} />} onClick={() => signOut(config)} />
     </DropdownMenu>
   );
@@ -325,6 +338,15 @@ export function ChatApp({ config, session, themeId, themeChoice, onThemeChange, 
       </div>
     </section>
   );
+
+  if (reviewing && isMentor) {
+    const backToChat = () => {
+      if (chatId) location.hash = `c=${chatId}`;
+      else history.pushState(null, "", location.pathname);
+      setReviewing(false);
+    };
+    return <ReviewPage call={call} themeId={themeId} accountMenu={accountMenu} onBack={backToChat} />;
+  }
 
   return (
     <>

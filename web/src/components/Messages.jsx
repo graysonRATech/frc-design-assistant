@@ -25,11 +25,11 @@ function BotAvatar() {
 }
 
 /** Keeps the server's [n] numbers on the chips, so they match the numbered source cards. */
-function NumberedCitation({ source, number }) {
+export function NumberedCitation({ source, number }) {
   return <Citation source={source} number={source.n ?? number} variant="number" />;
 }
 
-function sourceMap(list) {
+export function sourceMap(list) {
   return Object.fromEntries((list || []).map((s) => [String(s.number), { title: s.title, url: s.url, n: s.number }]));
 }
 
@@ -41,7 +41,7 @@ function hostOf(url) {
   }
 }
 
-function SourceCards({ sources }) {
+export function SourceCards({ sources }) {
   if (!sources?.length) return null;
   return (
     <div className="sources">

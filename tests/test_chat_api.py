@@ -28,6 +28,9 @@ class FakeTable:
     def put_item(self, Item):
         self.puts.append(Item)
 
+    def query(self, **kwargs):
+        return {"Items": []}
+
 
 class FakeRuntime:
     def __init__(self, results):

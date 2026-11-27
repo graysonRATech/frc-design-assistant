@@ -191,6 +191,7 @@ def run(p: Prepared, emit, should_stop) -> None:
         answer=answer,
         retrieved=[{"url": s.url, "score": s.score} for s in p.sources],
         cited=[s["url"] for s in cited],
+        sources=cited,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         micro_usd=cost,

@@ -129,3 +129,9 @@ body { background: var(--color-background-body, #f8f7f4); }
 .torch-app.torch-blueprint .src-n { background: transparent; box-shadow: inset 0 0 0 1.5px #e2700b; color: #e2700b; }
 .torch-app.torch-blueprint .sources-label span::after { content: " / bill of references"; color: var(--color-text-secondary); }
 .torch-app.torch-blueprint .src-meta, .torch-app.torch-blueprint .suggestion-tag, .torch-app.torch-blueprint .eyebrow { font-family: "IBM Plex Mono", monospace; }
+
+/* Mentor feedback review (ReviewPage.jsx) */
+.review-page { height: 100%; overflow-y: auto; padding: 24px 16px 48px; }
+.review-page > * { max-width: 880px; margin: 0 auto; }
+.review-retrieved { margin: 8px 0 0; padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }
+.review-note { flex: 1 1 260px; min-width: 0; }

@@ -254,6 +254,7 @@ class StudentAccess(Construct):
             "/chats/{id}": [apigw.HttpMethod.GET, apigw.HttpMethod.PATCH, apigw.HttpMethod.DELETE],
             "/chats/stop": [apigw.HttpMethod.POST],
             "/settings": [apigw.HttpMethod.GET, apigw.HttpMethod.PUT],
+            "/review": [apigw.HttpMethod.GET, apigw.HttpMethod.POST],  # mentors only, checked in the Lambda
         }
         for path, methods in routes.items():
             api.add_routes(path=path, methods=methods, integration=integration, authorizer=authorizer)

@@ -83,7 +83,7 @@ Source: https://www.frcdesign.org/design-handbook/structure/fasteners/#imperial
 | AWS Budgets | Email at 50/80/100% of the monthly budget and on forecast; at 120% an IAM deny on all Bedrock calls |
 | Monitoring | An alarm that emails `alert_email` when any answering function (chat, web stream, Slack) logs an error, and again when it clears; a daily 12:00 UTC test question through the streaming pipeline (about half a cent). Confirm the "AWS Notification - Subscription Confirmation" email once after the first deploy |
 | Cognito user pool | Google sign-in only. Allowlist triggers (`backend/auth_triggers`) reject anyone not added with `kb users add`, on sign-up and on every token refresh |
-| HTTP API | `POST /chat`, `POST /feedback` and the saved-chat routes (`/chats`), all behind a Cognito JWT authorizer; throttled to 5 req/s |
+| HTTP API | `POST /chat`, `POST /feedback`, the mentor review routes (`/review`) and the saved-chat routes (`/chats`), all behind a Cognito JWT authorizer; throttled to 5 req/s |
 | CloudFront + S3 | The chat page (`web/`: React + [Astryx](https://github.com/meta/astryx), built with Vite) under a strict Content-Security-Policy. Saved chats, streamed answers with Stop, copy, retry and edit, and a per-user theme (Auto, Forge, Collegiate, Blueprint) saved with `GET`/`PUT /settings` |
 | Slack bot (`chat_api/slack.py`, optional) | A receiver behind a public function URL checks Slack's request signature and hands each question to a worker, which streams the answer into a Slack thread. Same allowlist, daily limits and audit log as the web page; the worker shares the chat role. Deployed only when `slack.team_id` is set |
 
@@ -138,7 +138,11 @@ uv run kb users list
 uv run kb users remove alex@example.org                       # revokes sessions and deletes their sign-in record
 ```
 
-The allowlist is stored in DynamoDB, never in this repository. Feedback from the 👍/👎 buttons is stored next to the audit log (`pk = FEEDBACK`).
+The allowlist is stored in DynamoDB, never in this repository. Feedback from the 👍/👎 buttons is stored next to the audit log (`pk = FEEDBACK`), with a copy of the question, answer and sources it rates.
+
+### Reviewing feedback
+
+Mentors and admins get **Review feedback** in the account menu (or go to `/#review`). It lists the answers students marked not helpful, newest first: the student's comment, the question, the answer as they saw it, its sources, and everything search retrieved, with scores. That last part shows whether a bad answer came from search missing the right page or from the model misreading it. Mark an item reviewed, with an optional note such as "added eval case", and it leaves the to-review list. **Copy as test case** gives a starting point for [`evals/answers.yaml`](evals/answers.yaml), so a fixed problem stays fixed. Students get a 403 from `/review`; the role check is in the chat Lambda.
 
 ### Answer quality
 
