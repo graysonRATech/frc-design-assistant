@@ -53,10 +53,15 @@ def test_api_requests_cannot_switch_to_check_mode():
 OUTPUTS = {"WebUrl": "https://site/", "StreamUrl": "https://stream/", "ChatFunctionName": "chat"}
 
 
-def fake_status(page=200, stream=401, csp=True):
+PANEL_CSP = "default-src 'self'; frame-ancestors https://cad.onshape.com https://*.onshape.com"
+
+
+def fake_status(page=200, stream=401, csp=True, panel_csp=PANEL_CSP):
     def status(url, method="GET", data=None):
         if url == OUTPUTS["WebUrl"]:
             return page, ({"Content-Security-Policy": "x"} if csp else {})
+        if url == "https://site/onshape/index.html":
+            return 200, {"content-security-policy": panel_csp}
         return stream, {}
 
     return status
@@ -69,13 +74,14 @@ def answered(**overrides):
 
 def test_smoke_check_passes_on_a_healthy_stack():
     report = check(OUTPUTS, answered(), fake_status())
-    assert len(report) == 3 and "1 cited source" in report[2]
+    assert len(report) == 4 and "1 cited source" in report[3]
 
 
 @pytest.mark.parametrize(
     ("invoke", "status", "message"),
     [
         (answered(), fake_status(csp=False), "chat page"),
+        (answered(), fake_status(panel_csp="frame-ancestors 'none'"), "Onshape panel"),
         (answered(), fake_status(stream=200), "expected 401"),
         (lambda n, p: {"statusCode": 502, "body": json.dumps({"error": "boom"})}, fake_status(), "boom"),
         (answered(sources=[]), fake_status(), "uncited"),

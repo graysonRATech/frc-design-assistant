@@ -191,8 +191,9 @@ CERT = "arn:aws:acm:us-east-1:123456789012:certificate/abc"
 
 
 def test_streaming_function_url_streams_and_shares_the_chat_role(template):
-    url = next(iter(template.find_resources("AWS::Lambda::Url").values()))["Properties"]
-    assert url["InvokeMode"] == "RESPONSE_STREAM" and url["AuthType"] == "NONE"
+    urls = [u["Properties"] for u in template.find_resources("AWS::Lambda::Url").values()]
+    (url,) = [u for u in urls if u.get("InvokeMode") == "RESPONSE_STREAM"]
+    assert url["AuthType"] == "NONE"
     assert url["Cors"]["AllowMethods"] == ["POST"] and "authorization" in url["Cors"]["AllowHeaders"]
     functions = template.find_resources("AWS::Lambda::Function", {"Properties": {"Handler": "run.sh"}})
     stream = next(iter(functions.values()))["Properties"]
@@ -217,7 +218,8 @@ def test_custom_domain_is_served_and_allowed_for_sign_in(tmp_path):
         {"DistributionConfig": Match.object_like({"Aliases": ["frc.example.org"], "ViewerCertificate": Match.object_like({"AcmCertificateArn": CERT})})},
     )
     client = next(iter(template.find_resources("AWS::Cognito::UserPoolClient").values()))["Properties"]
-    assert client["CallbackURLs"][0] == "https://frc.example.org/" and len(client["CallbackURLs"]) == 2
+    assert client["CallbackURLs"][0] == "https://frc.example.org/" and len(client["CallbackURLs"]) == 4  # site + panel, both hosts
+    assert "https://frc.example.org/onshape/index.html" in client["CallbackURLs"]
     api = next(iter(template.find_resources("AWS::ApiGatewayV2::Api").values()))["Properties"]
     assert "https://frc.example.org" in api["CorsConfiguration"]["AllowOrigins"]
     assert template.to_json()["Outputs"]["WebUrl"]["Value"] == "https://frc.example.org/"
@@ -368,3 +370,54 @@ def test_deploy_role_can_run_the_smoke_test(tmp_path):
     deploy = [p for p in t.find_resources("AWS::IAM::Policy").values() if "DeployRole" in json.dumps(p["Properties"]["Roles"])]
     text = json.dumps(deploy)
     assert "lambda:InvokeFunction" in text and "cloudformation:DescribeStacks" in text and "ChatFunction" in text
+
+
+def _policies(template) -> dict[str, str]:
+    """Response headers policy logical id -> its Content-Security-Policy."""
+    return {
+        logical_id: policy["Properties"]["ResponseHeadersPolicyConfig"]["SecurityHeadersConfig"]["ContentSecurityPolicy"]["ContentSecurityPolicy"]
+        for logical_id, policy in template.find_resources("AWS::CloudFront::ResponseHeadersPolicy").items()
+    }
+
+
+def test_only_the_onshape_panel_may_be_framed_and_only_by_onshape(template):
+    distribution = next(iter(template.find_resources("AWS::CloudFront::Distribution").values()))["Properties"]["DistributionConfig"]
+    default_policy = distribution["DefaultCacheBehavior"]["ResponseHeadersPolicyId"]["Ref"]
+    (panel,) = distribution["CacheBehaviors"]
+    assert panel["PathPattern"] == "/onshape/*" and panel["ViewerProtocolPolicy"] == "redirect-to-https"
+    panel_policy = panel["ResponseHeadersPolicyId"]["Ref"]
+    csp = _policies(template)
+    assert "frame-ancestors 'none'" in csp[default_policy]
+    assert csp[panel_policy].endswith("frame-ancestors https://cad.onshape.com https://*.onshape.com")
+    headers = {
+        logical_id: p["Properties"]["ResponseHeadersPolicyConfig"]["SecurityHeadersConfig"]
+        for logical_id, p in template.find_resources("AWS::CloudFront::ResponseHeadersPolicy").items()
+    }
+    assert headers[default_policy]["FrameOptions"]["FrameOption"] == "DENY"
+    assert "FrameOptions" not in headers[panel_policy]  # X-Frame-Options can't name Onshape; CSP does
+
+
+def test_panel_sign_in_popup_returns_to_the_panel_page(template):
+    client = next(iter(template.find_resources("AWS::Cognito::UserPoolClient").values()))["Properties"]
+    callbacks = json.dumps(client["CallbackURLs"])
+    assert "onshape/index.html" in callbacks
+    assert "onshape" not in json.dumps(client["LogoutURLs"])
+
+
+def test_sign_in_handoff_is_a_small_function_limited_to_handoff_records(template):
+    (handoff,) = template.find_resources("AWS::Lambda::Function", {"Properties": {"Handler": "chat_api.handoff.handler"}}).values()
+    assert handoff["Properties"]["MemorySize"] == 128
+    urls = [u["Properties"] for u in template.find_resources("AWS::Lambda::Url").values()]
+    (url,) = [u for u in urls if sorted(u.get("Cors", {}).get("AllowMethods", [])) == ["GET", "POST"]]
+    assert url["AuthType"] == "NONE"
+    policies = json.dumps(template.find_resources("AWS::IAM::Policy"))
+    assert '"dynamodb:LeadingKeys": ["HANDOFF#*"]' in policies
+
+
+def test_build_copies_the_app_to_the_onshape_panel_path(tmp_path):
+    from scripts.build_web import add_onshape_panel
+
+    (tmp_path / "index.html").write_text('<script src="/assets/app.js"></script>', encoding="utf-8")
+    add_onshape_panel(tmp_path)
+    add_onshape_panel(tmp_path)  # idempotent
+    assert (tmp_path / "onshape" / "index.html").read_text(encoding="utf-8") == '<script src="/assets/app.js"></script>'

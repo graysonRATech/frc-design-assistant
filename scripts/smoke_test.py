@@ -1,6 +1,7 @@
 """Check a deployed stack actually answers questions. Run after every deploy (deploy.yml).
 
 1. The chat page loads, with its Content-Security-Policy header.
+   The Onshape panel page loads, and its policy lets only Onshape frame it.
 2. The streaming URL refuses a request without a sign-in token (it's up, and it checks).
 3. One real question through the streaming pipeline, by invoking the chat function directly with
    {"stream": true}. It runs under the same role and makes the same Bedrock calls as the web page
@@ -42,6 +43,13 @@ def check(outputs: dict[str, str], invoke, status=http_status) -> list[str]:
     if code != 200 or "content-security-policy" not in {k.lower() for k in headers}:
         raise SmokeFailed(f"chat page: HTTP {code}, CSP header {'present' if headers else 'missing'}")
     report.append(f"chat page loads ({outputs['WebUrl']})")
+
+    panel = outputs["WebUrl"].rstrip("/") + "/onshape/index.html"
+    code, headers = status(panel)
+    csp = next((v for k, v in headers.items() if k.lower() == "content-security-policy"), "")
+    if code != 200 or "frame-ancestors https://cad.onshape.com" not in csp:
+        raise SmokeFailed(f"Onshape panel page: HTTP {code}, frame-ancestors not limited to Onshape")
+    report.append("Onshape panel page loads and only Onshape may frame it")
 
     code, _ = status(outputs["StreamUrl"], "POST", b'{"question": "hi"}')
     if code != 401:

@@ -5,7 +5,7 @@ import { Theme } from "@astryxdesign/core/theme";
 import { torchBlueprintTheme } from "./themes/torch-blueprint.js";
 import { torchCollegiateTheme } from "./themes/torch-collegiate.js";
 import { torchForgeTheme } from "./themes/torch-forge.js";
-import { completeRedirect, currentSession } from "./lib/auth.js";
+import { completeRedirect, currentSession, finishPopup, isPopupReturn } from "./lib/auth.js";
 import { useThemeSetting } from "./lib/theme.js";
 import { ChatApp } from "./components/ChatApp.jsx";
 import { SignIn } from "./components/SignIn.jsx";
@@ -17,6 +17,7 @@ export function App() {
   const [config, setConfig] = useState(null);
   const [session, setSession] = useState(undefined); // undefined while loading, null when signed out
   const [authError, setAuthError] = useState("");
+  const [popupResult, setPopupResult] = useState(null); // in the Onshape panel's sign-in popup: "" or an error
   const [choice, themeId, setChoice] = useThemeSetting(config, !!session);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export function App() {
       const cfg = await (await fetch("/config.json", { cache: "no-store" })).json();
       setConfig(cfg);
       const params = new URLSearchParams(location.search);
+      if (isPopupReturn(params)) return setPopupResult(await finishPopup(cfg, params));
       if (params.has("error")) {
         history.replaceState(null, "", location.pathname);
         // Cognito prefixes trigger errors, e.g. "PreSignUp failed with error <message>."
@@ -51,12 +53,14 @@ export function App() {
   return (
     <Theme theme={THEME_OBJECTS[themeId]} mode={MODES[themeId]}>
       <div className={`torch-app torch-${themeId}`}>
-        {!config || session === undefined ? (
+        {popupResult !== null ? (
+          <p className="boot-error">{popupResult || "Signed in. You can close this window and go back to Onshape."}</p>
+        ) : !config || session === undefined ? (
           authError ? <p className="boot-error">{authError}</p> : null
         ) : session ? (
           <ChatApp config={config} session={session} themeId={themeId} themeChoice={choice} onThemeChange={setChoice} onSignedOut={signedOut} />
         ) : (
-          <SignIn config={config} themeId={themeId} error={authError} />
+          <SignIn config={config} themeId={themeId} error={authError} onSignedIn={(s) => { setAuthError(""); setSession(s); }} />
         )}
       </div>
     </Theme>

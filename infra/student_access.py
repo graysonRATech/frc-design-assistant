@@ -25,6 +25,10 @@ from .config import DeployConfig
 TOKEN_LIFETIME = Duration.hours(1)  # also how long a removed student keeps access, at most
 # AWS-published Lambda Web Adapter (github.com/awslabs/aws-lambda-web-adapter), v1.1.0, arm64.
 WEB_ADAPTER_LAYER = "arn:aws:lambda:{region}:753240598075:layer:LambdaAdapterLayerArm64:30"
+# The page Onshape shows in its right panel (scripts/build_web.py copies index.html there), and
+# who may frame it: Onshape itself, including enterprise subdomains.
+ONSHAPE_PANEL_PATH = "onshape/index.html"
+ONSHAPE_FRAME_ANCESTORS = "https://cad.onshape.com https://*.onshape.com"
 
 
 class StudentAccess(Construct):
@@ -100,31 +104,41 @@ class StudentAccess(Construct):
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
         )
-        headers = cloudfront.ResponseHeadersPolicy(
-            self,
-            "SecurityHeaders",
-            security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
-                # Wildcards rather than exact hosts: the API's CORS config already references
-                # this distribution, so referencing the API here would be a dependency cycle.
-                content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
-                    content_security_policy=(
-                        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-                        f"connect-src 'self' https://*.execute-api.{stack.region}.amazonaws.com "
-                        f"https://*.lambda-url.{stack.region}.on.aws https://*.amazoncognito.com; "
-                        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-                    ),
-                    override=True,
-                ),
-                content_type_options=cloudfront.ResponseHeadersContentTypeOptions(override=True),
-                frame_options=cloudfront.ResponseHeadersFrameOptions(frame_option=cloudfront.HeadersFrameOption.DENY, override=True),
-                referrer_policy=cloudfront.ResponseHeadersReferrerPolicy(
-                    referrer_policy=cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override=True
-                ),
-                strict_transport_security=cloudfront.ResponseHeadersStrictTransportSecurity(
-                    access_control_max_age=Duration.days(365), include_subdomains=True, override=True
-                ),
-            ),
+        # Wildcards rather than exact hosts: the API's CORS config already references this
+        # distribution, so referencing the API here would be a dependency cycle.
+        csp = (
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            f"connect-src 'self' https://*.execute-api.{stack.region}.amazonaws.com "
+            f"https://*.lambda-url.{stack.region}.on.aws https://*.amazoncognito.com; "
+            "base-uri 'none'; form-action 'self'; frame-ancestors "
         )
+
+        def security_headers(construct_id: str, frame_ancestors: str, deny_framing: bool) -> cloudfront.ResponseHeadersPolicy:
+            return cloudfront.ResponseHeadersPolicy(
+                self,
+                construct_id,
+                security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
+                    content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
+                        content_security_policy=csp + frame_ancestors, override=True
+                    ),
+                    content_type_options=cloudfront.ResponseHeadersContentTypeOptions(override=True),
+                    frame_options=(
+                        cloudfront.ResponseHeadersFrameOptions(frame_option=cloudfront.HeadersFrameOption.DENY, override=True)
+                        if deny_framing
+                        else None
+                    ),
+                    referrer_policy=cloudfront.ResponseHeadersReferrerPolicy(
+                        referrer_policy=cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override=True
+                    ),
+                    strict_transport_security=cloudfront.ResponseHeadersStrictTransportSecurity(
+                        access_control_max_age=Duration.days(365), include_subdomains=True, override=True
+                    ),
+                ),
+            )
+
+        headers = security_headers("SecurityHeaders", "'none'", deny_framing=True)
+        # The Onshape panel (/onshape/*) is the one page another site may frame, and only Onshape.
+        embed_headers = security_headers("OnshapePanelHeaders", ONSHAPE_FRAME_ANCESTORS, deny_framing=False)
         custom = (
             {
                 "domain_names": [config.domain_name],
@@ -133,6 +147,7 @@ class StudentAccess(Construct):
             if config.domain_name
             else {}
         )
+        site_origin = origins.S3BucketOrigin.with_origin_access_control(site_bucket)
         distribution = cloudfront.Distribution(
             self,
             "Cdn",
@@ -140,15 +155,24 @@ class StudentAccess(Construct):
             default_root_object="index.html",
             price_class=cloudfront.PriceClass.PRICE_CLASS_100,
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3BucketOrigin.with_origin_access_control(site_bucket),
+                origin=site_origin,
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 response_headers_policy=headers,
             ),
+            additional_behaviors={
+                "/onshape/*": cloudfront.BehaviorOptions(
+                    origin=site_origin,
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                    response_headers_policy=embed_headers,
+                )
+            },
         )
         cloudfront_url = f"https://{distribution.distribution_domain_name}/"
         site_url = f"https://{config.domain_name}/" if config.domain_name else cloudfront_url
         # Both addresses stay valid for sign-in, so old links keep working after a domain is added.
         site_urls = list(dict.fromkeys([site_url, cloudfront_url, *config.extra_web_origins_slash]))
+        # The Onshape panel's sign-in popup returns to the panel page (see web/src/lib/auth.js).
+        panel_urls = [f"{url}{ONSHAPE_PANEL_PATH}" for url in site_urls]
 
         client = pool.add_client(
             "Web",
@@ -157,7 +181,7 @@ class StudentAccess(Construct):
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(authorization_code_grant=True),
                 scopes=[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-                callback_urls=site_urls,
+                callback_urls=site_urls + panel_urls,
                 logout_urls=site_urls,
             ),
             id_token_validity=TOKEN_LIFETIME,
@@ -238,6 +262,35 @@ class StudentAccess(Construct):
             throttling_rate_limit=config.api_rate_per_second, throttling_burst_limit=config.api_burst
         )
 
+        handoff = lambda_.Function(
+            self,
+            "SignInHandoff",
+            runtime=lambda_.Runtime.PYTHON_3_13,
+            architecture=lambda_.Architecture.ARM_64,
+            handler="chat_api.handoff.handler",
+            code=lambda_.Code.from_asset(str(backend_dir), exclude=["auth_triggers", "auth_triggers/**", "requirements.txt", "**/__pycache__"]),
+            memory_size=128,
+            timeout=Duration.seconds(5),
+            environment={"TABLE_NAME": table.table_name},
+            log_group=logs.LogGroup(self, "HandoffLogs", retention=logs.RetentionDays.ONE_MONTH, removal_policy=RemovalPolicy.DESTROY),
+        )
+        handoff.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["dynamodb:PutItem", "dynamodb:DeleteItem"],
+                resources=[table.table_arn],
+                conditions={"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["HANDOFF#*"]}},
+            )
+        )
+        handoff_url = handoff.add_function_url(
+            auth_type=lambda_.FunctionUrlAuthType.NONE,  # holds only single-use, PKCE-bound codes
+            cors=lambda_.FunctionUrlCorsOptions(
+                allowed_origins=[url.rstrip("/") for url in site_urls],
+                allowed_methods=[lambda_.HttpMethod.GET, lambda_.HttpMethod.POST],
+                allowed_headers=["content-type"],
+                max_age=Duration.days(1),
+            ),
+        )
+
         auth_domain = f"https://{domain.domain_name}.auth.{stack.region}.amazoncognito.com"
         s3deploy.BucketDeployment(
             self,
@@ -255,6 +308,8 @@ class StudentAccess(Construct):
                         "authDomain": auth_domain,
                         "clientId": client.user_pool_client_id,
                         "redirectUri": site_url,
+                        "panelRedirectUri": f"{site_url}{ONSHAPE_PANEL_PATH}",
+                        "handoffUrl": handoff_url.url,
                     },
                 ),
             ],

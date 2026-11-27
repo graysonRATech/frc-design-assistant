@@ -29,7 +29,17 @@ def build(web: Path = WEB) -> Path:
         subprocess.run([npm, "ci", "--no-fund", "--no-audit"], cwd=web, check=True)
         stamp.write_text(digest)
     subprocess.run([npm, "run", "build", "--silent"], cwd=web, check=True)
-    return web / "dist"
+    dist = web / "dist"
+    add_onshape_panel(dist)
+    return dist
+
+
+def add_onshape_panel(dist: Path) -> None:
+    """The Onshape panel is the same app at /onshape/index.html: CloudFront lets only that path be
+    framed (by Onshape), and the app switches to panel mode there. Asset URLs are absolute."""
+    panel = dist / "onshape"
+    panel.mkdir(exist_ok=True)
+    shutil.copyfile(dist / "index.html", panel / "index.html")
 
 
 if __name__ == "__main__":

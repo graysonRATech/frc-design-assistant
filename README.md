@@ -12,6 +12,7 @@ Architecture, costs and decisions are in [docs/discovery.md](docs/discovery.md).
 | 2 | AWS stack (CDK): S3, Bedrock Knowledge Base on S3 Vectors, chat Lambda, audit log, budget guardrails | ✅ deployed; content load awaits Bedrock quotas |
 | 3 | Student web UI, API Gateway, Google sign-in via Cognito, allowlist, feedback | ✅ deployed |
 | 4 | GitHub Actions: tests, source previews on PRs, deploys, daily content refresh | ✅ built; needs a GitHub repo |
+| 5 | Onshape: chat panel beside the CAD | ✅ built |
 
 ## Knowledge sources
 
@@ -198,6 +199,24 @@ Setup (you need to be a workspace admin, or have one approve the app):
 5. Back in the Slack app: **Event Subscriptions > Enable Events**, paste `SlackEventsUrl` as the Request URL (it should show **Verified**), add the bot events `app_mention` and `message.im`, and save. Reinstall the app if Slack asks.
 
 Each thread is stored under `SLACK#<channel>` and deleted `chat_retention_days` after its last message.
+
+### Onshape panel
+
+The chat also runs in a panel on the right side of Onshape, next to the CAD, at `https://<site>/onshape/index.html`. It's the same app, signed in with the same Google account, with the same access list and limits. It makes no Onshape API calls, so it doesn't use the plan's yearly API allowance.
+
+- **Framing:** CloudFront lets only that path be framed, and only by `cad.onshape.com` (and `*.onshape.com`). Every other page still refuses to be framed.
+- **Sign-in:** Google won't show its sign-in page inside another site's frame, so **Sign in with Google** in the panel opens a small popup. The popup returns an authorization code by `postMessage`. If Google's pages cut the popup off from the panel, a small handoff endpoint (`backend/chat_api/handoff.py`) holds the code for at most 5 minutes and gives it out once. The code is useless without the PKCE verifier, which never leaves the panel.
+- **Storage:** the panel keeps its own sign-in, since browsers keep an embedded site's storage separate from the main site's. Students sign in once in Onshape. Browsers that block embedded storage keep it until the tab closes.
+
+Setup (Classroom or company admin, once):
+
+1. In Onshape, go to **Classroom settings > Developer > OAuth applications** and click **Create new OAuth application**. Use any name (e.g. "TORCH Design Assistant") and a primary format like `org.torch5804.design`. Set the redirect URL to `https://<site>/onshape/index.html`. Grant no permissions: the panel doesn't call Onshape's API. Creating it under Classroom settings makes the team the owner, not one person.
+2. On the app's **Extensions** tab, click **Add extension**:
+   - **Location:** Element right panel. **Context:** Part Studio (add a second extension for Assembly if you want it there too).
+   - **Action URL:** `https://<site>/onshape/index.html?documentId={$documentId}&workspaceOrVersion={$workspaceOrVersion}&workspaceId={$workspaceOrVersionId}&elementId={$elementId}`
+   - **Icon:** the TORCH logo (`web/public/favicon.svg`, exported as PNG if Onshape asks).
+3. On the app's **Users** (or access) settings, assign the team: individual users, an alias, or a team.
+4. Open a Part Studio. The panel's icon appears in the right-hand toolbar.
 
 ## Continuous deployment
 

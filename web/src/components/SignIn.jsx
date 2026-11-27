@@ -4,7 +4,8 @@ import { Card } from "@astryxdesign/core/Card";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
 import { VStack } from "@astryxdesign/core/VStack";
-import { signIn } from "../lib/auth.js";
+import { useState } from "react";
+import { inPanel, signIn, signInWithPopup } from "../lib/auth.js";
 import { Logo, PrototypeBanner } from "./Brand.jsx";
 
 function GoogleMark() {
@@ -18,7 +19,22 @@ function GoogleMark() {
   );
 }
 
-export function SignIn({ config, themeId, error }) {
+export function SignIn({ config, themeId, error, onSignedIn }) {
+  const [busy, setBusy] = useState(false);
+  const [panelError, setPanelError] = useState("");
+  const start = async () => {
+    if (!inPanel) return signIn(config);
+    setBusy(true);
+    setPanelError("");
+    try {
+      onSignedIn(await signInWithPopup(config));
+    } catch (failure) {
+      setPanelError(failure.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const shown = panelError || error;
   return (
     <div className="signin">
       <PrototypeBanner themeId={themeId} />
@@ -31,9 +47,20 @@ export function SignIn({ config, themeId, error }) {
             <Text color="secondary" justify="center" as="p">
               Mechanism design, Onshape CAD and fabrication answers from team-approved references like FRCDesign.org.
             </Text>
-            <Button variant="secondary" size="lg" width="100%" label="Sign in with Google" icon={<GoogleMark />} onClick={() => signIn(config)} />
-            <Text type="supporting" justify="center" as="p">For TORCH students and mentors. Use your school Google account.</Text>
-            {error ? <Banner status="error" title={error} /> : null}
+            <Button
+              variant="secondary"
+              size="lg"
+              width="100%"
+              label={busy ? "Finish signing in in the popup…" : "Sign in with Google"}
+              icon={<GoogleMark />}
+              disabled={busy}
+              onClick={start}
+            />
+            <Text type="supporting" justify="center" as="p">
+              For TORCH students and mentors. Use your school Google account.
+              {inPanel ? " Sign-in opens in a small window." : ""}
+            </Text>
+            {shown ? <Banner status="error" title={shown} /> : null}
           </VStack>
         </Card>
       </div>
