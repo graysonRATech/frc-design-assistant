@@ -131,6 +131,7 @@ def job_from(payload: dict) -> dict | None:
         "channel": event["channel"],
         "user": event["user"],
         "text": event.get("text", ""),
+        "ts": event["ts"],
         "thread_ts": event.get("thread_ts") or event["ts"],  # streaming always replies in a thread
         "where": where,
     }
@@ -243,16 +244,20 @@ class ThreadStore:
 def member_email(slack: SlackClient, user_id: str, team_id: str) -> str | None:
     """The email of a full member of our workspace, or None for anyone else."""
     user = slack.call("users.info", user=user_id)["user"]
-    if (
-        user.get("deleted")
-        or user.get("is_bot")
-        or user.get("is_restricted")  # multi-channel guest
-        or user.get("is_ultra_restricted")  # single-channel guest
-        or user.get("is_stranger")  # someone from another workspace in a shared channel
-        or user.get("team_id") != team_id
-    ):
+    reasons = {
+        "deleted": user.get("deleted"),
+        "bot": user.get("is_bot"),
+        "multi-channel guest": user.get("is_restricted"),
+        "single-channel guest": user.get("is_ultra_restricted"),
+        "another workspace": user.get("is_stranger") or user.get("team_id") != team_id,
+    }
+    refused = [reason for reason, applies in reasons.items() if applies]
+    if refused:
+        log.info("Slack user refused: %s", ", ".join(refused))
         return None
     email = str((user.get("profile") or {}).get("email") or "").strip().lower()
+    if not email:
+        log.info("Slack user refused: no email visible (check the users:read.email scope)")
     return email or None
 
 
@@ -371,7 +376,11 @@ def say(slack: SlackClient, job: dict, text: str) -> None:
         if job["where"] == "dm":
             slack.call("chat.postMessage", channel=job["channel"], thread_ts=job["thread_ts"], text=text)
         else:
-            slack.call("chat.postEphemeral", channel=job["channel"], user=job["user"], thread_ts=job["thread_ts"], text=text)
+            # Inline where they asked: an ephemeral note inside a thread is easy to miss, because
+            # Slack doesn't show the thread's reply count for it. Mid-thread follow-ups stay there.
+            in_thread = job["thread_ts"] != job.get("ts", job["thread_ts"])
+            extra = {"thread_ts": job["thread_ts"]} if in_thread else {}
+            slack.call("chat.postEphemeral", channel=job["channel"], user=job["user"], text=text, **extra)
     except SlackError as error:
         log.error("Slack reply failed: %s", error.code)
 
@@ -389,7 +398,8 @@ def worker_handler(event, context, deps=None, slack=None):
     email = member_email(slack, job["user"], os.environ.get("SLACK_TEAM_ID", job["team"]))
     role = allowlisted_role(deps.table, email, verified=True) if email else None
     if not role:
-        log.info("Slack user not allowed")
+        if email:
+            log.info("Slack user refused: email not on the access list")
         return say(slack, job, NOT_ALLOWED)
 
     question = question_text(job["text"])

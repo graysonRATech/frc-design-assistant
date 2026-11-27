@@ -95,7 +95,7 @@ def test_mention_starts_the_worker_once_even_when_slack_retries():
     table, lam = DedupeTable(), FakeLambda()
     receive(mention(), table=table, lam=lam)
     receive(mention(), table=table, lam=lam)
-    assert lam.jobs == [{"team": TEAM, "channel": "C1", "user": "U1", "text": "<@UBOT> what bolts?", "thread_ts": "100.1", "where": "channel"}]
+    assert lam.jobs == [{"team": TEAM, "channel": "C1", "user": "U1", "text": "<@UBOT> what bolts?", "ts": "100.1", "thread_ts": "100.1", "where": "channel"}]
 
 
 def test_replies_in_the_existing_thread_and_handles_dms():
@@ -149,7 +149,7 @@ class FakeSlack:
 
 
 def job(**kw):
-    return {"team": TEAM, "channel": "C1", "user": "U1", "text": "<@UBOT> What bolts?", "thread_ts": "100.1", "where": "channel", **kw}
+    return {"team": TEAM, "channel": "C1", "user": "U1", "text": "<@UBOT> What bolts?", "ts": "100.1", "thread_ts": "100.1", "where": "channel", **kw}
 
 
 def allowed_deps(**claude):
@@ -197,7 +197,23 @@ def test_everyone_else_gets_a_private_no(user):
     worker_handler(job(), None, deps=d, slack=sl)
     assert sl.methods() == ["users.info", "chat.postEphemeral"]
     assert sl.calls[1][1]["text"] == NOT_ALLOWED and sl.calls[1][1]["user"] == "U1"
+    assert "thread_ts" not in sl.calls[1][1]  # inline in the channel, where the asker will see it
     assert not d.claude.calls
+
+
+def test_refusal_says_why_in_the_log_without_the_email(caplog):
+    caplog.set_level("INFO")
+    worker_handler(job(), None, deps=allowed_deps(), slack=FakeSlack(user={**MEMBER, "profile": {"email": "someone@elsewhere.org"}}))
+    worker_handler(job(), None, deps=allowed_deps(), slack=FakeSlack(user={**MEMBER, "is_restricted": True}))
+    assert "email not on the access list" in caplog.text
+    assert "multi-channel guest" in caplog.text
+    assert "elsewhere.org" not in caplog.text
+
+
+def test_private_replies_to_a_follow_up_stay_in_its_thread():
+    d, sl = allowed_deps(), FakeSlack(user={**MEMBER, "profile": {"email": "someone@elsewhere.org"}})
+    worker_handler(job(ts="100.9"), None, deps=d, slack=sl)
+    assert sl.calls[1][1]["thread_ts"] == "100.1"
 
 
 def test_blocked_email_entry_beats_the_domain():
