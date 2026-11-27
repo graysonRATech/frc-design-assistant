@@ -140,6 +140,17 @@ uv run kb users remove alex@example.org                       # revokes sessions
 
 The allowlist is stored in DynamoDB, never in this repository. Feedback from the 👍/👎 buttons is stored next to the audit log (`pk = FEEDBACK`).
 
+### Answer quality
+
+`kb eval` checks retrieval: did search find the right page? `uv run --group aws kb answers` checks what students actually see. It asks the deployed assistant each question in [`evals/answers.yaml`](evals/answers.yaml) through the same streaming pipeline as the website and Slack, then grades each answer:
+
+- **Fixed checks (free):** the right source is cited, required facts appear (`include`), and known-wrong claims don't (`exclude`).
+- **Rubric:** for what a pattern can't judge ("doesn't name teams as best without a source"), Claude grades each criterion yes or no. By default it uses the assistant's own model.
+
+Cases cover design, CAD, the game rules, past games, honesty about what the references don't cover, safety, and off-topic or prompt-injection questions. A run costs about a cent per case and pauses between cases so it doesn't take Bedrock quota from students. It prints pass rates per area and saves a JSON report with every answer to `build/evals/`.
+
+Run it before and after changing the model, the prompt or the sources, and compare the reports. When students hit a bad answer, add it as a case. `--only rules` runs one area, `--only robot-weight` one case.
+
 ### Costs
 
 At idle the stack costs about $0.40/month: the Google client secret in Secrets Manager. S3 Vectors, DynamoDB on-demand, Lambda, API Gateway, CloudFront and Cognito (Lite, under 10,000 monthly users) all bill per use or fall under free tiers, and the first two budgets are free. A question costs about $0.01–0.015, mostly Claude tokens: roughly 3.5k input and 500 output tokens. The app caps (`limits` in the config) stop spending before AWS Budgets has to.

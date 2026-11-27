@@ -124,6 +124,50 @@ def ask(aws, outputs: StackOutputs, question: str, user: str, history: list[dict
     return response["statusCode"], json.loads(response["body"])
 
 
+def ask_streamed(aws, outputs: StackOutputs, question: str, user: str) -> tuple[int, dict]:
+    """One question through the streaming pipeline the website and Slack use. The chat function
+    answers in full, then deletes the saved chat (backend/chat_api/handler.py, _streamed_check)."""
+    payload = {"user": user, "question": question, "stream": True}
+    result = aws.client("lambda").invoke(FunctionName=outputs.chat_function, Payload=json.dumps(payload).encode())
+    response = json.loads(result["Payload"].read())
+    if "statusCode" not in response:
+        return 500, {"error": response.get("errorMessage", str(response))}
+    return response["statusCode"], json.loads(response["body"])
+
+
+@dataclass(frozen=True)
+class ChatModel:
+    id: str
+    endpoint: str  # "mantle" or "runtime", as in backend/chat_api/handler.py
+    price_input_per_mtok: float
+    price_output_per_mtok: float
+
+    def cost(self, usage: dict) -> float:
+        return (usage["input_tokens"] * self.price_input_per_mtok + usage["output_tokens"] * self.price_output_per_mtok) / 1e6
+
+
+def chat_model(aws, outputs: StackOutputs) -> ChatModel:
+    """The model the deployed assistant answers with, from the chat function's settings."""
+    env = aws.client("lambda").get_function_configuration(FunctionName=outputs.chat_function)["Environment"]["Variables"]
+    return ChatModel(
+        id=env["MODEL_ID"],
+        endpoint=env.get("CLAUDE_ENDPOINT", "mantle"),
+        price_input_per_mtok=float(env.get("PRICE_INPUT_PER_MTOK", "2")),
+        price_output_per_mtok=float(env.get("PRICE_OUTPUT_PER_MTOK", "10")),
+    )
+
+
+def claude_client(model: ChatModel, region: str):
+    try:
+        from anthropic import AnthropicBedrock, AnthropicBedrockMantle
+    except ImportError as error:
+        raise SystemExit("the anthropic package is missing; run `uv sync --group aws`") from error
+    client = AnthropicBedrockMantle if model.endpoint == "mantle" else AnthropicBedrock
+    # Bedrock quotas on this account are small; back off rather than fail (the SDK's retries are
+    # exponential), since students share the same quota.
+    return client(aws_region=region, max_retries=6)
+
+
 def retrieve_urls(aws, outputs: StackOutputs, question: str, top_k: int) -> list[str]:
     results = aws.client("bedrock-agent-runtime").retrieve(
         knowledgeBaseId=outputs.knowledge_base_id,

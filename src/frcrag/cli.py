@@ -24,6 +24,8 @@ DEFAULT_CACHE = Path(".cache/sources")
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(errors="replace")
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    for noisy in ("httpx", "anthropic", "botocore"):  # a line per HTTP call or credential lookup
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     parser = argparse.ArgumentParser(prog="kb", description="Manage the FRC design knowledge base.")
     parser.add_argument("--config", type=Path, default=Path("sources.yaml"), help="sources file (default: sources.yaml)")
@@ -59,6 +61,18 @@ def main(argv: list[str] | None = None) -> int:
     evaluate = commands.add_parser("eval", parents=[aws_options], help="measure retrieval quality against evals/retrieval.yaml")
     evaluate.add_argument("--file", type=Path, default=Path("evals/retrieval.yaml"))
     evaluate.add_argument("--top-k", type=int, default=6)
+
+    answers = commands.add_parser(
+        "answers", parents=[aws_options], help="grade the deployed assistant's answers against evals/answers.yaml (~1 cent per case)"
+    )
+    answers.add_argument("--file", type=Path, default=Path("evals/answers.yaml"))
+    answers.add_argument("--only", action="append", metavar="ID_OR_TAG", help="run only these case ids or tags (repeatable)")
+    answers.add_argument("--grader-model", help="model id for rubric grading (default: the assistant's own model)")
+    answers.add_argument("--user", default="answer-eval", help="name recorded in the audit log (default: answer-eval)")
+    answers.add_argument("--out", type=Path, default=Path("build/evals"), help="where to write the JSON report")
+    answers.add_argument(
+        "--pause", type=float, default=10.0, help="seconds between cases, to leave Bedrock quota for students (default: 10)"
+    )
 
     users = commands.add_parser("users", parents=[aws_options], help="manage who can sign in")
     user_commands = users.add_subparsers(dest="user_command", required=True)
@@ -103,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
         return _ask(aws_ops, session, outputs, args.question, args.user)
     if args.command == "users":
         return _users(aws_ops, session, outputs, args)
+    if args.command == "answers":
+        return _answers(aws_ops, session, outputs, args)
     return _eval(aws_ops, session, outputs, args.file, args.top_k)
 
 
@@ -150,6 +166,45 @@ def _ask(aws_ops, session, outputs, question: str, user: str) -> int:
     usage = body["usage"]
     print(f"\n({usage['input_tokens']} in / {usage['output_tokens']} out tokens, ${usage['cost_usd']:.4f}; request {body['request_id']})")
     return 0
+
+
+def _answers(aws_ops, session, outputs, args) -> int:
+    from datetime import UTC, datetime
+
+    from . import answer_eval
+
+    cases = answer_eval.load_cases(args.file)
+    if args.only:
+        wanted = set(args.only)
+        cases = [c for c in cases if c.id in wanted or wanted & set(c.tags)]
+    if not cases:
+        log.error("error: no cases match")
+        return 2
+    model = aws_ops.chat_model(session, outputs)
+    grader_model = args.grader_model or model.id
+    claude = aws_ops.claude_client(model, args.region)
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # the SDK sets it up again on import
+
+    def grader(case, answer, sources):
+        grades, usage = answer_eval.grade(claude, grader_model, case, answer, sources)
+        return grades, model.cost(usage)
+
+    import time
+
+    results = []
+    for i, case in enumerate(cases, 1):
+        if i > 1:
+            time.sleep(args.pause)
+        print(f"[{i}/{len(cases)}] {case.id}", flush=True)
+        results.append(answer_eval.run_case(case, lambda q: aws_ops.ask_streamed(session, outputs, q, args.user), grader))
+    print()
+    print(answer_eval.summary(results))
+
+    args.out.mkdir(parents=True, exist_ok=True)
+    path = args.out / f"answers-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+    path.write_text(answer_eval.dumps(answer_eval.report(results, model.id, grader_model)), encoding="utf-8")
+    print(f"report: {path}")
+    return 0 if all(r.passed for r in results) else 1
 
 
 def _users(aws_ops, session, outputs, args) -> int:

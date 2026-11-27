@@ -16,6 +16,7 @@ kb = "frcrag.cli:main"
 
 [dependency-groups]
 aws = [
+    "anthropic[bedrock]>=2.8.0", # rubric grading in `kb answers`
     "boto3[crt]>=1.44.3",
 ]
 dev = ["pytest>=8", "pyjwt[crypto]>=2.15.1"]
